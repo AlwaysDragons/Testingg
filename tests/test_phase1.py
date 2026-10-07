@@ -98,7 +98,8 @@ def test_login_scripts_present() -> None:
 
 def test_pool_module_shape() -> None:
     _set_env()
-    from src.playwright_pool import pool as pool_mod
+    from src.playwright_pool import pool as pool_singleton
+    from src.playwright_pool.pool import PlaywrightPool
 
-    assert hasattr(pool_mod, "pool")
-    assert hasattr(pool_mod.pool, "session")
+    assert isinstance(pool_singleton, PlaywrightPool)
+    assert hasattr(pool_singleton, "session")

@@ -9,7 +9,7 @@ import re
 from urllib.parse import quote_plus
 
 from loguru import logger
-from selectolax.parser import HTMLParser
+from selectolax.lexbor import LexborHTMLParser as HTMLParser
 
 from src.playwright_pool import pool
 

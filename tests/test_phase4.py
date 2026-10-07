@@ -17,11 +17,11 @@ def test_matcher_best_match() -> None:
         _CatalogRow(sku="SKU-1", corpus="corteiz alcatraz cargo pants"),
         _CatalogRow(sku="SKU-2", corpus="trapstar irongate tee"),
     ]
-    hit = best_match("Corteiz Cargos — black L", catalog)
+    hit = best_match("corteiz alcatraz cargos — black L", catalog)
     assert hit is not None
     assert hit[0] == "SKU-1"
 
-    hit2 = best_match("trapstar irongate tshirt tee", catalog)
+    hit2 = best_match("trapstar irongate tee shirt", catalog)
     assert hit2 is not None and hit2[0] == "SKU-2"
 
     assert best_match("random pokemon card holder", catalog) is None

@@ -11,7 +11,7 @@ from decimal import Decimal, InvalidOperation
 from urllib.parse import quote_plus
 
 from loguru import logger
-from selectolax.parser import HTMLParser
+from selectolax.lexbor import LexborHTMLParser as HTMLParser
 
 from src.marketplaces._common import utcnow
 from src.playwright_pool import pool

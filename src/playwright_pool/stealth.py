@@ -14,7 +14,6 @@ on supplier portals) still probe for after stealth v1:
 from __future__ import annotations
 
 from playwright.async_api import BrowserContext, Page
-from playwright_stealth import stealth_async
 
 _INIT_SCRIPT = r"""
 (() => {
@@ -79,4 +78,6 @@ async def apply_stealth(context: BrowserContext) -> None:
 
 async def apply_stealth_page(page: Page) -> None:
     """One-shot stealth on a specific page — use when a context already has pages open."""
+    from playwright_stealth import stealth_async  # lazy — avoids pkg_resources import at module load
+
     await stealth_async(page)
