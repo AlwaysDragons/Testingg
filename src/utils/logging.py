@@ -43,6 +43,9 @@ async def _post_telegram(token: str, chat_id: str, text: str) -> None:
 
 
 def configure_logging() -> None:
+    import os as _os
+    from pathlib import Path as _Path
+
     logger.remove()
     logger.add(
         sys.stderr,
@@ -52,6 +55,21 @@ def configure_logging() -> None:
         "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
         "<level>{message}</level>",
     )
+
+    log_file = _Path(_os.environ.get("LOG_FILE", "/data/logs/app.log"))
+    try:
+        log_file.parent.mkdir(parents=True, exist_ok=True)
+        logger.add(
+            str(log_file),
+            level=settings.log_level,
+            rotation="25 MB",
+            retention=5,
+            enqueue=True,
+            format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}",
+        )
+    except Exception:
+        pass
+
     logger.add(_telegram_sink, level="ERROR")
 
 

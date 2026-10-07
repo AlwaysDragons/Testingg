@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>dropship-mp</title>
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #11141a;
+    --panel-2: #161a21;
+    --border: #1f2530;
+    --text: #d5dae3;
+    --muted: #6b7484;
+    --accent: #d8a85f;
+    --ok: #4ade80;
+    --warn: #facc15;
+    --bad: #f87171;
+    --font: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; }
+  header {
+    display: flex; align-items: center; gap: 1rem; padding: 10px 18px;
+    border-bottom: 1px solid var(--border); background: var(--panel);
+  }
+  header h1 { margin: 0; font-size: 15px; letter-spacing: 1px; color: var(--accent); }
+  header .status { margin-left: auto; display: flex; gap: 10px; }
+  .pill { padding: 2px 8px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--border); font-size: 11px; }
+  .pill.ok { color: var(--ok); border-color: #184a2b; }
+  .pill.bad { color: var(--bad); border-color: #4a1818; }
+  nav { display: flex; gap: 2px; border-bottom: 1px solid var(--border); background: var(--panel); padding: 0 10px; }
+  nav button {
+    background: transparent; color: var(--muted); border: 0; padding: 10px 14px; cursor: pointer;
+    font-family: var(--font); font-size: 12px; border-bottom: 2px solid transparent;
+  }
+  nav button:hover { color: var(--text); }
+  nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
+  main { padding: 14px 18px; }
+  section { display: none; }
+  section.active { display: block; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 10px; letter-spacing: 1px; }
+  tr:hover td { background: var(--panel); }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+    padding: 14px; margin-bottom: 14px;
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+  .stat { background: var(--panel-2); padding: 12px; border-radius: 4px; border: 1px solid var(--border); }
+  .stat .label { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
+  .stat .value { font-size: 18px; color: var(--accent); margin-top: 4px; }
+  button.action {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    padding: 6px 14px; border-radius: 4px; cursor: pointer; font-family: var(--font); font-size: 12px;
+  }
+  button.action:hover { border-color: var(--accent); color: var(--accent); }
+  input, select {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    padding: 6px 10px; border-radius: 4px; font-family: var(--font); font-size: 12px;
+  }
+  .rec-scale { color: var(--ok); }
+  .rec-hold { color: var(--warn); }
+  .rec-kill { color: var(--bad); }
+  .status-active, .status-shipped, .status-placed { color: var(--ok); }
+  .status-warming, .status-queued, .status-placing { color: var(--warn); }
+  .status-suspended, .status-failed, .status-cooldown { color: var(--bad); }
+  #logs {
+    background: #060709; color: #a8b0bc; padding: 12px; border-radius: 4px; border: 1px solid var(--border);
+    font-size: 11px; line-height: 1.45; height: 70vh; overflow-y: scroll; white-space: pre-wrap;
+  }
+  #logs .lvl-ERROR { color: var(--bad); }
+  #logs .lvl-WARNING { color: var(--warn); }
+  #logs .lvl-INFO { color: #a8b0bc; }
+  #logs .lvl-DEBUG { color: var(--muted); }
+  .row-input { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .muted { color: var(--muted); }
+  .err { color: var(--bad); }
+</style>
+</head>
+<body>
+<header>
+  <h1>DROPSHIP-MP</h1>
+  <div class="status">
+    <span class="pill" id="pill-db">db ?</span>
+    <span class="pill" id="pill-redis">redis ?</span>
+    <span class="pill" id="pill-proxy">proxy ?</span>
+    <span class="pill" id="pill-env">env ?</span>
+  </div>
+</header>
+
+<nav>
+  <button data-tab="health" class="active">health</button>
+  <button data-tab="opps">opportunities</button>
+  <button data-tab="accounts">accounts</button>
+  <button data-tab="listings">listings</button>
+  <button data-tab="sales">sales</button>
+  <button data-tab="dms">dms</button>
+  <button data-tab="pnl">pnl</button>
+  <button data-tab="catalog">catalog</button>
+  <button data-tab="scrapes">scrapes</button>
+  <button data-tab="actions">actions</button>
+  <button data-tab="logs">logs</button>
+  <button data-tab="settings">settings</button>
+</nav>
+
+<main>
+  <section id="tab-health" class="active">
+    <div class="card">
+      <div class="grid" id="health-grid"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 10px 0;color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:1px;">queue depth</h3>
+      <table id="queue-table"><thead><tr><th>queue</th><th>pending</th></tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-opps">
+    <div class="card">
+      <table><thead><tr>
+        <th>sku</th><th>median $</th><th>cost $</th><th>margin $</th><th>vel</th><th>sat</th><th>score</th><th>rec</th><th></th>
+      </tr></thead><tbody id="opps-table"></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-accounts">
+    <div class="card">
+      <table><thead><tr>
+        <th>platform</th><th>handle</th><th>status</th><th>today</th><th>warming started</th><th>activated</th><th>last posted</th>
+      </tr></thead><tbody id="accounts-table"></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-listings">
+    <div class="card">
+      <table><thead><tr>
+        <th>sku</th><th>platform</th><th>price $</th><th>status</th><th>posted</th><th>sold</th><th>title</th>
+      </tr></thead><tbody id="listings-table"></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-sales">
+    <div class="card">
+      <table><thead><tr>
+        <th>#</th><th>platform</th><th>buyer</th><th>$</th><th>sold</th><th>supplier</th><th>status</th><th>tracking</th><th></th>
+      </tr></thead><tbody id="sales-table"></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-dms">
+    <div class="card">
+      <table><thead><tr>
+        <th>platform</th><th>buyer</th><th>review?</th><th>reason</th><th>last message</th>
+      </tr></thead><tbody id="dms-table"></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-pnl">
+    <div class="card">
+      <h3 style="margin:0 0 10px 0;color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;">daily</h3>
+      <table><thead><tr>
+        <th>date</th><th>sales</th><th>gross</th><th>fees</th><th>cost</th><th>net</th>
+      </tr></thead><tbody id="pnl-daily"></tbody></table>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 10px 0;color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;">by sku · 30d</h3>
+      <table><thead><tr>
+        <th>sku</th><th>sales</th><th>gross</th><th>cost</th><th>net</th><th>margin %</th><th>rec</th>
+      </tr></thead><tbody id="pnl-skus"></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-catalog">
+    <div class="card">
+      <table><thead><tr>
+        <th>sku</th><th>name</th><th>category</th><th>sizes</th><th>mode</th><th>sources</th>
+      </tr></thead><tbody id="catalog-table"></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-scrapes">
+    <div class="card">
+      <table><thead><tr>
+        <th>platform</th><th>query</th><th>found</th><th>errors</th><th>dur s</th><th>ran at</th>
+      </tr></thead><tbody id="scrapes-table"></tbody></table>
+    </div>
+  </section>
+
+  <section id="tab-actions">
+    <div class="card">
+      <h3 style="margin:0 0 10px 0;color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;">post a listing</h3>
+      <div class="row-input">
+        <input id="post-sku" placeholder="SKU (e.g. CRTZ-ALC-CARGO)">
+        <input id="post-plats" placeholder="depop,grailed,mercari (optional)">
+        <button class="action" onclick="postListing()">POST</button>
+      </div>
+      <div id="post-result" class="muted"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 10px 0;color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;">one-off runs</h3>
+      <div class="row-input">
+        <button class="action" onclick="runAction('scrape')">RUN MARKET SCRAPE</button>
+        <button class="action" onclick="runAction('pnl_rollup')">RUN PNL ROLLUP</button>
+      </div>
+      <div id="run-result" class="muted"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 10px 0;color:var(--muted);font-weight:500;font-size:11px;text-transform:uppercase;">build dispute pdf</h3>
+      <div class="row-input">
+        <input id="disp-sale" placeholder="sale_id (integer)">
+        <button class="action" onclick="buildDispute()">BUILD PDF</button>
+      </div>
+      <div id="disp-result" class="muted"></div>
+    </div>
+  </section>
+
+  <section id="tab-settings">
+    <div class="card">
+      <h3 style="margin:0 0 6px 0;color:var(--accent);font-weight:500;font-size:12px;text-transform:uppercase;letter-spacing:1px;">
+        settings — writes to .env
+      </h3>
+      <div class="muted" style="margin-bottom:14px;">
+        Masked fields (bot token, API keys) show as ●●●●●● when set. Leaving a masked
+        field untouched keeps the existing value; type a new value to replace it; type
+        a space + save to clear it. After saving, run <code>docker compose restart
+        scheduler worker telegram dashboard</code> on your machine so services pick up
+        the new values.
+      </div>
+
+      <h4 style="color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:1px;margin:14px 0 6px;">Telegram</h4>
+      <div id="settings-telegram"></div>
+
+      <h4 style="color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:1px;margin:14px 0 6px;">Reshipper · Shipito</h4>
+      <div id="settings-shipito"></div>
+
+      <h4 style="color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:1px;margin:14px 0 6px;">Proxy (optional)</h4>
+      <div id="settings-proxy"></div>
+
+      <h4 style="color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:1px;margin:14px 0 6px;">Scheduling</h4>
+      <div id="settings-scheduling"></div>
+
+      <h4 style="color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:1px;margin:14px 0 6px;">Limits</h4>
+      <div id="settings-limits"></div>
+
+      <div style="margin-top:18px;display:flex;gap:12px;align-items:center;">
+        <button class="action" onclick="saveSettings()">SAVE</button>
+        <button class="action" onclick="loadSettings()">RELOAD</button>
+        <span id="settings-result" class="muted"></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-logs">
+    <div class="card">
+      <div class="row-input">
+        <button class="action" onclick="startStream()">STREAM</button>
+        <button class="action" onclick="stopStream()">STOP</button>
+        <button class="action" onclick="document.getElementById('logs').innerHTML=''">CLEAR</button>
+        <span class="muted" id="stream-state">disconnected</span>
+      </div>
+      <div id="logs"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+const token = localStorage.getItem("dashboard_token") || "";
+
+async function fetchJSON(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({}, opts.headers, token ? {"X-Token": token} : {});
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+function fmt(v, nd) { if (v === null || v === undefined) return "—"; return typeof v === "number" ? v.toFixed(nd || 2) : v; }
+function fmtDate(s) { if (!s) return "—"; return s.replace("T", " ").replace("Z", "").slice(0, 16); }
+function statusClass(s) { return "status-" + (s || "").toLowerCase(); }
+function recClass(r) { return "rec-" + (r || "").toLowerCase(); }
+
+// --- tabs ---
+document.querySelectorAll("nav button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("section").forEach(s => s.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+    const h = handlers[btn.dataset.tab]; if (h) h();
+  });
+});
+
+// --- health ---
+async function loadHealth() {
+  try {
+    const d = await fetchJSON("/api/health");
+    document.getElementById("pill-db").className = "pill " + (d.db.ok ? "ok" : "bad");
+    document.getElementById("pill-db").textContent = "db " + (d.db.ok ? "✓" : "✗");
+    document.getElementById("pill-redis").className = "pill " + (d.redis.ok ? "ok" : "bad");
+    document.getElementById("pill-redis").textContent = "redis " + (d.redis.ok ? "✓" : "✗");
+    document.getElementById("pill-proxy").textContent = d.proxy_configured ? "proxy on" : "proxy off";
+    document.getElementById("pill-env").textContent = "env " + d.env;
+
+    document.getElementById("health-grid").innerHTML = `
+      <div class="stat"><div class="label">postgres</div><div class="value">${d.db.ok ? "ONLINE" : "DOWN"}</div></div>
+      <div class="stat"><div class="label">redis</div><div class="value">${d.redis.ok ? "ONLINE" : "DOWN"}</div></div>
+      <div class="stat"><div class="label">proxy</div><div class="value">${d.proxy_configured ? "configured" : "direct"}</div></div>
+      <div class="stat"><div class="label">env</div><div class="value">${d.env}</div></div>`;
+    const tb = document.querySelector("#queue-table tbody"); tb.innerHTML = "";
+    Object.entries(d.queues || {}).forEach(([k, v]) => {
+      tb.insertAdjacentHTML("beforeend", `<tr><td>${k}</td><td>${v}</td></tr>`);
+    });
+  } catch (e) { console.error(e); }
+}
+
+async function loadOpps() {
+  const rows = await fetchJSON("/api/opportunities?limit=50");
+  const tb = document.getElementById("opps-table"); tb.innerHTML = "";
+  rows.forEach(o => tb.insertAdjacentHTML("beforeend", `
+    <tr>
+      <td>${o.sku}</td>
+      <td>${fmt(o.market_price_median)}</td>
+      <td>${fmt(o.supplier_cost_usd)}</td>
+      <td>${fmt(o.margin_usd)}</td>
+      <td>${fmt(o.velocity_score, 1)}</td>
+      <td>${o.saturation_count ?? "—"}</td>
+      <td>${fmt(o.composite_score)}</td>
+      <td class="${recClass(o.recommended_action)}">${o.recommended_action || "—"}</td>
+      <td><button class="action" onclick="postShortcut('${o.sku}')">POST</button></td>
+    </tr>`));
+}
+
+async function loadAccounts() {
+  const rows = await fetchJSON("/api/accounts");
+  const tb = document.getElementById("accounts-table"); tb.innerHTML = "";
+  rows.forEach(a => tb.insertAdjacentHTML("beforeend", `
+    <tr>
+      <td>${a.platform}</td>
+      <td>${a.handle}</td>
+      <td class="${statusClass(a.status)}">${a.status}</td>
+      <td>${a.listings_today}/${a.daily_limit}</td>
+      <td>${fmtDate(a.warming_started_at)}</td>
+      <td>${fmtDate(a.activated_at)}</td>
+      <td>${fmtDate(a.last_posted)}</td>
+    </tr>`));
+}
+
+async function loadListings() {
+  const rows = await fetchJSON("/api/listings?limit=100");
+  const tb = document.getElementById("listings-table"); tb.innerHTML = "";
+  rows.forEach(l => tb.insertAdjacentHTML("beforeend", `
+    <tr>
+      <td>${l.sku || "—"}</td>
+      <td>${l.platform}</td>
+      <td>${fmt(l.price_usd)}</td>
+      <td class="${statusClass(l.status)}">${l.status || "—"}</td>
+      <td>${fmtDate(l.posted_at)}</td>
+      <td>${fmtDate(l.sold_at)}</td>
+      <td>${l.url ? '<a href="' + l.url + '" target="_blank">' + (l.title || l.platform_listing_id) + '</a>' : (l.title || "—")}</td>
+    </tr>`));
+}
+
+async function loadSales() {
+  const rows = await fetchJSON("/api/sales?limit=100");
+  const tb = document.getElementById("sales-table"); tb.innerHTML = "";
+  rows.forEach(s => {
+    const sup = s.supplier || {};
+    tb.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td>${s.sale_id}</td>
+        <td>${s.platform}</td>
+        <td>${s.buyer_handle || "—"}</td>
+        <td>${fmt(s.sale_price_usd)}</td>
+        <td>${fmtDate(s.sold_at)}</td>
+        <td>${sup.source || "—"}</td>
+        <td class="${statusClass(sup.status || '')}">${sup.status || "—"}</td>
+        <td>${sup.tracking_number || "—"}${sup.tracking_pushed ? " ✓" : ""}</td>
+        <td><button class="action" onclick="disputeShortcut(${s.sale_id})">DISPUTE</button></td>
+      </tr>`);
+  });
+}
+
+async function loadDms() {
+  const rows = await fetchJSON("/api/dm_threads");
+  const tb = document.getElementById("dms-table"); tb.innerHTML = "";
+  rows.forEach(t => tb.insertAdjacentHTML("beforeend", `
+    <tr>
+      <td>${t.platform}</td>
+      <td>${t.buyer_handle || "—"}</td>
+      <td class="${t.needs_human_review ? 'err' : ''}">${t.needs_human_review ? "⚠" : "—"}</td>
+      <td>${t.review_reason || "—"}</td>
+      <td>${fmtDate(t.last_message_at)}</td>
+    </tr>`));
+}
+
+async function loadPnl() {
+  const d = await fetchJSON("/api/pnl");
+  const daily = document.getElementById("pnl-daily"); daily.innerHTML = "";
+  d.daily.forEach(r => daily.insertAdjacentHTML("beforeend", `
+    <tr>
+      <td>${r.date}</td>
+      <td>${r.sales_count || 0}</td>
+      <td>${fmt(r.gross_sales_usd)}</td>
+      <td>${fmt(r.platform_fees_usd)}</td>
+      <td>${fmt(r.supplier_costs_usd)}</td>
+      <td>${fmt(r.net_profit_usd)}</td>
+    </tr>`));
+  const skus = document.getElementById("pnl-skus"); skus.innerHTML = "";
+  d.skus.forEach(s => skus.insertAdjacentHTML("beforeend", `
+    <tr>
+      <td>${s.sku}</td>
+      <td>${s.sales_count}</td>
+      <td>${fmt(s.gross_usd)}</td>
+      <td>${fmt(s.cost_usd)}</td>
+      <td>${fmt(s.net_usd)}</td>
+      <td>${fmt(s.avg_margin_pct)}%</td>
+      <td class="${recClass(s.recommendation)}">${s.recommendation}</td>
+    </tr>`));
+}
+
+async function loadCatalog() {
+  const rows = await fetchJSON("/api/catalog");
+  const tb = document.getElementById("catalog-table"); tb.innerHTML = "";
+  rows.forEach(c => tb.insertAdjacentHTML("beforeend", `
+    <tr>
+      <td>${c.sku}</td>
+      <td>${c.display_name}</td>
+      <td>${c.category}</td>
+      <td>${(c.sizes || []).join(", ")}</td>
+      <td>${c.stocking_mode}</td>
+      <td>${(c.sources || []).map(s => `${s.source}@$${s.expected_price_usd}`).join(" · ") || "—"}</td>
+    </tr>`));
+}
+
+async function loadScrapes() {
+  const rows = await fetchJSON("/api/scrape_runs");
+  const tb = document.getElementById("scrapes-table"); tb.innerHTML = "";
+  rows.forEach(r => tb.insertAdjacentHTML("beforeend", `
+    <tr>
+      <td>${r.platform}</td>
+      <td>${r.query || "—"}</td>
+      <td>${r.listings_found}</td>
+      <td>${r.errors}</td>
+      <td>${r.duration_sec}</td>
+      <td>${fmtDate(r.ran_at)}</td>
+    </tr>`));
+}
+
+// --- actions ---
+async function postListing() {
+  const sku = document.getElementById("post-sku").value.trim();
+  const plats = document.getElementById("post-plats").value.trim();
+  if (!sku) { document.getElementById("post-result").textContent = "SKU required"; return; }
+  const body = { sku };
+  if (plats) body.platforms = plats.split(",").map(x => x.trim()).filter(Boolean);
+  try {
+    const r = await fetchJSON("/api/action/post", {method: "POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+    document.getElementById("post-result").textContent = `enqueued · job ${r.job_id}`;
+  } catch (e) { document.getElementById("post-result").innerHTML = '<span class="err">'+ e.message +'</span>'; }
+}
+function postShortcut(sku) { document.getElementById("post-sku").value = sku; document.querySelector('nav button[data-tab="actions"]').click(); }
+
+async function runAction(name) {
+  try {
+    const r = await fetchJSON("/api/action/" + name, {method: "POST"});
+    document.getElementById("run-result").textContent = name + " enqueued · job " + r.job_id;
+  } catch (e) { document.getElementById("run-result").innerHTML = '<span class="err">'+ e.message +'</span>'; }
+}
+
+async function buildDispute() {
+  const sid = parseInt(document.getElementById("disp-sale").value, 10);
+  if (!sid) { document.getElementById("disp-result").textContent = "sale_id required"; return; }
+  try {
+    const r = await fetchJSON("/api/action/dispute", {method: "POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({sale_id: sid})});
+    document.getElementById("disp-result").innerHTML = 'PDF built · <a href="/api/dispute/' + sid + '.pdf" target="_blank">download</a>';
+  } catch (e) { document.getElementById("disp-result").innerHTML = '<span class="err">'+ e.message +'</span>'; }
+}
+function disputeShortcut(sid) { document.getElementById("disp-sale").value = sid; document.querySelector('nav button[data-tab="actions"]').click(); }
+
+// --- live log stream ---
+let logsSrc = null;
+function colorLog(line) {
+  if (/ERROR/.test(line)) return `<span class="lvl-ERROR">${escapeHtml(line)}</span>`;
+  if (/WARNING/.test(line)) return `<span class="lvl-WARNING">${escapeHtml(line)}</span>`;
+  if (/DEBUG/.test(line)) return `<span class="lvl-DEBUG">${escapeHtml(line)}</span>`;
+  return `<span class="lvl-INFO">${escapeHtml(line)}</span>`;
+}
+function escapeHtml(s) { return s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function startStream() {
+  stopStream();
+  const el = document.getElementById("logs");
+  const state = document.getElementById("stream-state");
+  fetch("/api/logs/tail?lines=200").then(r => r.json()).then(d => {
+    el.innerHTML = (d.lines || []).map(colorLog).join("<br>");
+    el.scrollTop = el.scrollHeight;
+  });
+  logsSrc = new EventSource("/api/logs/stream");
+  state.textContent = "connecting";
+  logsSrc.onopen = () => state.textContent = "live";
+  logsSrc.onerror = () => state.textContent = "disconnected";
+  logsSrc.onmessage = ev => {
+    el.insertAdjacentHTML("beforeend", "<br>" + colorLog(ev.data));
+    el.scrollTop = el.scrollHeight;
+  };
+}
+function stopStream() {
+  if (logsSrc) { logsSrc.close(); logsSrc = null; }
+  document.getElementById("stream-state").textContent = "disconnected";
+}
+
+// --- settings ---
+const SETTINGS_GROUPS = {
+  telegram: ["TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID", "TELEGRAM_ADMIN_IDS"],
+  shipito: ["SHIPITO_API_KEY", "SHIPITO_ACCOUNT_ID"],
+  proxy: ["PROXY_PROVIDER", "PROXY_HOST", "PROXY_PORT", "PROXY_USER", "PROXY_PASS", "PROXY_SLOTS"],
+  scheduling: [
+    "POLL_SOLD_INTERVAL_MINUTES", "SCRAPE_INTERVAL_HOURS", "TRACKING_POLL_INTERVAL_MINUTES",
+    "REPRICE_INTERVAL_HOURS", "COMPETITOR_WATCH_INTERVAL_HOURS", "DM_POLL_INTERVAL_MINUTES",
+    "REVIEW_SOLICIT_DELAY_DAYS", "DAILY_DIGEST_HOUR"
+  ],
+  limits: [
+    "MAX_LISTINGS_PER_ACCOUNT_PER_DAY", "MAX_SIMULTANEOUS_BROWSERS",
+    "WARMING_PERIOD_DAYS", "WARMING_ACTIONS_PER_DAY",
+    "PRICE_BREACH_THRESHOLD_PCT", "REPRICE_FLOOR_MARGIN_PCT",
+    "LOG_LEVEL"
+  ],
+};
+
+function settingsFieldRow(key, info) {
+  const inputType = info.masked ? "password" : "text";
+  const placeholder = info.masked && info.set ? "●●●●●● (set — type new value to replace)" : "";
+  return `
+    <div class="row-input" style="margin-bottom:6px;">
+      <label style="min-width:280px;color:var(--muted);">${key}</label>
+      <input id="set-${key}" type="${inputType}" value="${info.masked ? '' : escapeHtml(info.value || '')}" placeholder="${placeholder}" style="flex:1;min-width:200px;">
+      <span class="pill ${info.set ? 'ok' : ''}">${info.set ? 'set' : 'unset'}</span>
+    </div>`;
+}
+
+async function loadSettings() {
+  try {
+    const data = await fetchJSON("/api/settings");
+    Object.entries(SETTINGS_GROUPS).forEach(([group, keys]) => {
+      const el = document.getElementById("settings-" + group);
+      el.innerHTML = keys.map(k => settingsFieldRow(k, data[k] || {set:false, value:"", masked:false})).join("");
+    });
+    document.getElementById("settings-result").textContent = `loaded from ${data._env_path.value}`;
+  } catch (e) {
+    document.getElementById("settings-result").innerHTML = '<span class="err">load failed: ' + e.message + '</span>';
+  }
+}
+
+async function saveSettings() {
+  const data = await fetchJSON("/api/settings");  // re-fetch to know masks
+  const payload = {};
+  Object.values(SETTINGS_GROUPS).flat().forEach(k => {
+    const inp = document.getElementById("set-" + k);
+    if (!inp) return;
+    const info = data[k] || {masked:false, set:false, value:""};
+    const raw = inp.value;
+    if (info.masked) {
+      // Only send if user typed something new (not blank, not placeholder).
+      if (raw && raw !== "●●●●●●") payload[k] = raw;
+    } else {
+      payload[k] = raw;
+    }
+  });
+  try {
+    const r = await fetchJSON("/api/settings", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload),
+    });
+    document.getElementById("settings-result").innerHTML =
+      `<span style="color:var(--ok)">saved ${r.written.length} key(s)</span> · ` +
+      `then: <code>docker compose restart scheduler worker telegram dashboard</code>`;
+    loadSettings();
+  } catch (e) {
+    document.getElementById("settings-result").innerHTML = '<span class="err">save failed: ' + e.message + '</span>';
+  }
+}
+
+const handlers = {
+  health: loadHealth,
+  opps: loadOpps,
+  accounts: loadAccounts,
+  listings: loadListings,
+  sales: loadSales,
+  dms: loadDms,
+  pnl: loadPnl,
+  catalog: loadCatalog,
+  scrapes: loadScrapes,
+  logs: startStream,
+  settings: loadSettings,
+};
+
+// initial + poll health every 10s
+loadHealth();
+setInterval(loadHealth, 10_000);
+</script>
+</body>
+</html>

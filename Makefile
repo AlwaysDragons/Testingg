@@ -1,4 +1,4 @@
-.PHONY: bootstrap build up down logs ps restart test seed health post digest pnl shell psql clean
+.PHONY: bootstrap build up down logs ps restart test seed shell psql migrate clean dashboard
 
 bootstrap:
 	bash scripts/bootstrap.sh
@@ -9,7 +9,14 @@ build:
 up:
 	docker compose up -d
 	@echo
-	@echo "stack booting. follow telegram with:  make logs"
+	@echo "stack booting."
+	@echo "  dashboard:  http://localhost:8787"
+	@echo "  logs:       make logs"
+
+dashboard:
+	@echo "open http://localhost:8787"
+	-command -v xdg-open >/dev/null 2>&1 && xdg-open http://localhost:8787 || \
+	 command -v open >/dev/null 2>&1 && open http://localhost:8787 || true
 
 down:
 	docker compose down

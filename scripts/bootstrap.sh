@@ -21,20 +21,16 @@ fi
 
 mkdir -p data/sessions/depop data/sessions/grailed data/sessions/mercari
 mkdir -p data/photos/raw data/photos/processed data/photos/backgrounds
-mkdir -p data/dispute_packets
+mkdir -p data/dispute_packets data/logs
 
 echo
 echo "Next steps:"
-echo "  1. Edit .env — set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID (minimum)"
-echo "       Create a bot via @BotFather on Telegram → paste token here."
-echo "       DM the bot once, then open https://api.telegram.org/bot<TOKEN>/getUpdates"
-echo "       to find your chat.id."
-echo "  2. docker compose build"
-echo "  3. docker compose up -d"
-echo "  4. docker compose logs -f telegram        # should say 'telegram bot online'"
-echo "  5. In Telegram, send /health              # expect db ✓ redis ✓"
-echo "  6. docker compose run --rm worker python -m scripts.seed_demo"
-echo "       (seeds one demo SKU so /digest + /post have something to show)"
+echo "  1. make build"
+echo "  2. make up"
+echo "  3. Open http://localhost:8787  — the dashboard"
+echo "       Go to the Settings tab and paste your Telegram bot token + chat id."
+echo "       Press SAVE, then run:  docker compose restart telegram"
+echo "  4. make seed    # drops in one demo SKU so views have data"
 echo
-echo "Proxies are OPTIONAL. Leave PROXY_HOST empty in .env and the VPS's own IP"
-echo "is used. Add BrightData creds later when you want residential rotation."
+echo "Proxies are OPTIONAL. Leave PROXY_HOST blank — the stack runs direct"
+echo "from this machine. Add BrightData later only if you scale beyond 3 accounts/platform."
