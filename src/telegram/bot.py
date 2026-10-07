@@ -133,10 +133,30 @@ async def cmd_post(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     )
 
 
-async def cmd_dispute(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+async def cmd_dispute(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_admin(update) or update.effective_chat is None:
         return
-    await update.effective_chat.send_message("dispute — Phase 7 stub")
+    if not ctx.args:
+        await update.effective_chat.send_message("usage: /dispute <sale_id>")
+        return
+    try:
+        sale_id = int(ctx.args[0])
+    except ValueError:
+        await update.effective_chat.send_message("sale_id must be an integer")
+        return
+    from src.disputes.evidence_packet import build_packet
+
+    path = await build_packet(sale_id)
+    if path is None:
+        await update.effective_chat.send_message(f"could not build packet for sale {sale_id}")
+        return
+    try:
+        with open(path, "rb") as f:
+            await update.effective_chat.send_document(f, filename=path.name)
+    except Exception as exc:
+        await update.effective_chat.send_message(
+            f"packet at {path} — telegram upload failed: {exc}"
+        )
 
 
 def main() -> None:
