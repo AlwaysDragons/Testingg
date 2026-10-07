@@ -65,10 +65,26 @@ async def cmd_pnl(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.effective_chat.send_message("pnl — Phase 6 stub")
 
 
-async def cmd_post(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+async def cmd_post(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_admin(update) or update.effective_chat is None:
         return
-    await update.effective_chat.send_message("post — Phase 5 stub")
+    if not ctx.args:
+        await update.effective_chat.send_message(
+            "usage: /post <SKU> [depop,grailed,mercari]"
+        )
+        return
+    sku = ctx.args[0]
+    platforms = (
+        [p.strip() for p in ctx.args[1].split(",") if p.strip()]
+        if len(ctx.args) > 1
+        else None
+    )
+    await update.effective_chat.send_message(f"posting {sku}… (enqueued)")
+    from src.queue import get_queue
+
+    get_queue("listing_posts").enqueue(
+        "src.workers.listing_post.run", sku, platforms, job_timeout=900
+    )
 
 
 async def cmd_dispute(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
