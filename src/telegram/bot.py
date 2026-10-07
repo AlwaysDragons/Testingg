@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from loguru import logger
 from sqlalchemy import select as sqla_select, text
-from telegram import Update
+from telegram import BotCommand, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 from src.config import settings
@@ -56,9 +56,9 @@ async def cmd_health(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_digest(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_admin(update) or update.effective_chat is None:
         return
-    from src.telegram.digests import _format_digest
+    from src.telegram.digests import format_digest
 
-    body = await _format_digest()
+    body = await format_digest()
     await update.effective_chat.send_message(body[:4000])
 
 
@@ -159,6 +159,32 @@ async def cmd_dispute(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         )
 
 
+async def cmd_accounts(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    if not _is_admin(update) or update.effective_chat is None:
+        return
+    from src.db.models import PostingAccount
+
+    async with session_scope() as sess:
+        rows = (
+            await sess.execute(sqla_select(PostingAccount).order_by(PostingAccount.platform, PostingAccount.handle))
+        ).scalars().all()
+    if not rows:
+        await update.effective_chat.send_message(
+            "no accounts yet.\n"
+            "run on your host:\n"
+            "  python -m scripts.login_depop --handle <h>\n"
+            "  python -m scripts.warm_new_account --platform depop --handle <h>"
+        )
+        return
+    lines = ["accounts:"]
+    for a in rows:
+        cooldown = f" cooldown→{a.cooldown_until:%Y-%m-%d %H:%M}" if a.cooldown_until else ""
+        lines.append(
+            f"  {a.platform}/{a.handle} · {a.status} · {a.listings_today or 0}/{a.daily_limit or 5} today{cooldown}"
+        )
+    await update.effective_chat.send_message("\n".join(lines))
+
+
 def main() -> None:
     configure_logging()
     if not settings.telegram_bot_token:
@@ -172,7 +198,19 @@ def main() -> None:
     app.add_handler(CommandHandler("pnl", cmd_pnl))
     app.add_handler(CommandHandler("post", cmd_post))
     app.add_handler(CommandHandler("dispute", cmd_dispute))
+    app.add_handler(CommandHandler("accounts", cmd_accounts))
 
+    async def _post_init(application: Application) -> None:
+        await application.bot.set_my_commands([
+            BotCommand("health", "Check db + redis status"),
+            BotCommand("digest", "Top opportunities + yesterday P&L"),
+            BotCommand("pnl", "Yesterday P&L + scale/kill lists"),
+            BotCommand("post", "Post a SKU — /post <SKU> [platforms]"),
+            BotCommand("accounts", "List posting accounts and their state"),
+            BotCommand("dispute", "Build dispute PDF — /dispute <sale_id>"),
+        ])
+
+    app.post_init = _post_init
     logger.info("telegram bot online — polling")
     app.run_polling(allowed_updates=Update.ALL_TYPES, stop_signals=None)
 

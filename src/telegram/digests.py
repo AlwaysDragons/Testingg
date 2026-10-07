@@ -14,7 +14,7 @@ from src.db.session import session_scope
 from src.ranker.opportunity import top_opportunities
 
 
-async def _format_digest(limit: int = 10) -> str:
+async def format_digest(limit: int = 10) -> str:
     opps = await top_opportunities(limit=limit)
     yesterday = dt.date.today() - dt.timedelta(days=1)
     async with session_scope() as sess:
@@ -67,7 +67,7 @@ async def _post_async(body: str) -> None:
 
 def send_daily_digest(*_args, **_kwargs) -> None:
     async def _wrap() -> None:
-        body = await _format_digest()
+        body = await format_digest()
         await _post_async(body)
         logger.info("daily digest posted ({} chars)", len(body))
 

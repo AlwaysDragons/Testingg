@@ -86,7 +86,12 @@ class PlaywrightPool:
         headless: bool = True,
         save_state: bool = True,
     ) -> AsyncIterator[BrowserContext]:
-        """Lease a stealthed, authenticated context for (platform, handle)."""
+        """Lease a stealthed, authenticated context for (platform, handle).
+
+        Proxy is optional — if PROXY_HOST/PROXY_USER are blank in the env,
+        the context runs direct from the VPS's own IP. Fine for first-boot
+        testing; add residential rotation later for production scale.
+        """
         store = session_for(platform, handle)
         proxy = build_proxy(proxy_slot or f"{platform}:{handle}")
 
