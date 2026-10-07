@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from loguru import logger
-from sqlalchemy import text
+from sqlalchemy import select as sqla_select, text
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
@@ -56,13 +56,59 @@ async def cmd_health(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_digest(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_admin(update) or update.effective_chat is None:
         return
-    await update.effective_chat.send_message("digest — Phase 4 stub, no data yet")
+    from src.telegram.digests import _format_digest
+
+    body = await _format_digest()
+    await update.effective_chat.send_message(body[:4000])
 
 
 async def cmd_pnl(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     if not _is_admin(update) or update.effective_chat is None:
         return
-    await update.effective_chat.send_message("pnl — Phase 6 stub")
+    import datetime as _dt
+
+    from src.db.models import PnlDaily, PnlSkuRollup
+
+    yesterday = _dt.date.today() - _dt.timedelta(days=1)
+    async with session_scope() as sess:
+        pnl = (
+            await sess.execute(
+                sqla_select(PnlDaily).where(PnlDaily.date == yesterday)
+            )
+        ).scalar_one_or_none()
+        kills = (
+            await sess.execute(
+                sqla_select(PnlSkuRollup)
+                .where(PnlSkuRollup.recommendation == "kill")
+                .limit(5)
+            )
+        ).scalars().all()
+        scales = (
+            await sess.execute(
+                sqla_select(PnlSkuRollup)
+                .where(PnlSkuRollup.recommendation == "scale")
+                .limit(5)
+            )
+        ).scalars().all()
+
+    lines = [f"pnl — {yesterday}"]
+    if pnl is None:
+        lines.append("  (no row yet; run pnl_rollup)")
+    else:
+        lines.append(
+            f"  sales {pnl.sales_count or 0} · gross ${pnl.gross_sales_usd or 0:.2f} · net ${pnl.net_profit_usd or 0:.2f}"
+        )
+    if scales:
+        lines.append("")
+        lines.append("scale candidates:")
+        for s in scales:
+            lines.append(f"  • {s.sku} · {s.avg_margin_pct}% margin · {s.sales_count} sales")
+    if kills:
+        lines.append("")
+        lines.append("kill list:")
+        for k in kills:
+            lines.append(f"  • {k.sku} · {k.avg_margin_pct}% margin · {k.sales_count} sales")
+    await update.effective_chat.send_message("\n".join(lines))
 
 
 async def cmd_post(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
