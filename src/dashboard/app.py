@@ -361,7 +361,18 @@ async def dispute_pdf(sale_id: int) -> FileResponse:
 
 # ---------- settings (edit .env from UI) ----------
 
-ENV_PATH = Path(os.environ.get("DASHBOARD_ENV_PATH", "/app/.env"))
+def _resolve_env_path() -> Path:
+    explicit = os.environ.get("DASHBOARD_ENV_PATH")
+    if explicit:
+        return Path(explicit).resolve()
+    candidates = [Path("/app/.env"), Path.cwd() / ".env", Path(__file__).resolve().parents[2] / ".env"]
+    for c in candidates:
+        if c.exists():
+            return c
+    return candidates[0]
+
+
+ENV_PATH = _resolve_env_path()
 
 # Keys that are safe to expose + edit from the local dashboard. Anything not
 # here is hidden to keep the surface small.
