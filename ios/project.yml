@@ -1,0 +1,44 @@
+name: Forge
+options:
+  bundleIdPrefix: com.yourname
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Forge:
+    type: application
+    platform: iOS
+    sources:
+      - Forge
+    settings:
+      base:
+        # Change this to something unique (e.g. com.raoul.forge) before signing.
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.forge
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+    info:
+      path: Forge/Info.plist
+      properties:
+        CFBundleDisplayName: Forge
+        LSRequiresIPhoneOS: true
+        UILaunchScreen:
+          UIColorName: AccentColor
+        UIUserInterfaceStyle: Dark
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        NSHealthShareUsageDescription: Forge reads your sleep, HRV, resting heart rate, activity, body composition and nutrition to calculate readiness and optimize your training and recovery.
+        NSHealthUpdateUsageDescription: Forge does not write to Apple Health.
+    entitlements:
+      path: Forge/Forge.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
