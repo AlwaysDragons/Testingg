@@ -24,7 +24,7 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     info:
-      path: Forge/Info.plist
+      path: Support/Xcode-Info.plist
       properties:
         CFBundleDisplayName: Forge
         LSRequiresIPhoneOS: true
@@ -38,7 +38,7 @@ targets:
         NSHealthShareUsageDescription: Forge reads your sleep, HRV, resting heart rate, activity, body composition and nutrition to calculate readiness and optimize your training and recovery.
         NSHealthUpdateUsageDescription: Forge does not write to Apple Health.
     entitlements:
-      path: Forge/Forge.entitlements
+      path: Support/Xcode.entitlements
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []

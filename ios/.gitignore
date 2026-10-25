@@ -3,3 +3,9 @@ DerivedData/
 build/
 *.xcuserstate
 Forge.xcodeproj/
+.build/
+.swiftpm/
+Packages/
+*.ipa
+Support/Xcode-Info.plist
+Support/Xcode.entitlements

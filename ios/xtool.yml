@@ -1,0 +1,7 @@
+version: 1
+# Must be unique to you. Change it if xtool says the ID is taken.
+bundleID: com.raoulreinder.forge
+product: Forge
+infoPath: Support/Info.plist
+entitlementsPath: Support/Forge.entitlements
+iconPath: Forge/Assets.xcassets/AppIcon.appiconset/icon.png
