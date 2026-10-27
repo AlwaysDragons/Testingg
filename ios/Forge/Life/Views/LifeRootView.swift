@@ -6,10 +6,12 @@ struct LifeRootView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var phase
     @State private var store = LifeStore()
+    @State private var chat = ChatStore()
 
     var body: some View {
         LifeTabs()
             .environment(store)
+            .environment(chat)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -22,8 +24,10 @@ struct LifeRootView: View {
 private struct LifeTabs: View {
     @Environment(CloudSync.self) private var cloud
     @Environment(LifeStore.self) private var store
+    @Environment(ChatStore.self) private var chat
 
     var body: some View {
+        @Bindable var chat = chat
         TabView {
             HomeView().tabItem { Label("Home", systemImage: "square.grid.2x2") }
             TodayView().tabItem { Label("Today", systemImage: "sun.max") }
@@ -31,7 +35,16 @@ private struct LifeTabs: View {
         }
         .tint(DS.Palette.primary)
         // Connect (or disconnect) the dashboard whenever sign-in changes.
-        .task(id: cloud.isSignedIn) { await store.connect(cloud.supabase) }
+        .task(id: cloud.isSignedIn) {
+            await store.connect(cloud.supabase)
+            await chat.connect(cloud.supabase)
+        }
+        .sheet(isPresented: $chat.isPresented) { ChatSheet().environment(chat).environment(store) }
+        .onAppear {
+            // The agent's changes arrive by realtime; also refresh right after a reply.
+            chat.onDeviceActions = [{ _ in await store.reloadAll() }]
+            store.onTableChange = [{ tables in if tables.contains("ai_messages") { Task { await chat.reload() } } }]
+        }
     }
 }
 

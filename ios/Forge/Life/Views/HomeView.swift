@@ -45,9 +45,10 @@ struct HomeView: View {
                     }
                 }
                 .padding(.horizontal, DS.Space.m)
-                .padding(.bottom, 96)   // room for the chat bar
+                .padding(.bottom, DS.Space.m)
             }
             .dsScreen()
+            .safeAreaInset(edge: .bottom) { if cloud.isSignedIn { ChatBar() } }
             .refreshable {
                 await model.refreshAll()   // existing Hevy + Health refresh (also pushes to Supabase)
                 await store.reloadAll()

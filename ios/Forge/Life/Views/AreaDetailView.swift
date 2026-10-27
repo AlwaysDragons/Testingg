@@ -6,6 +6,7 @@ struct AreaDetailView: View {
     @Environment(LifeStore.self) private var store
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(ChatStore.self) private var chat
     let area: Area
 
     enum Tab: String, CaseIterable, Identifiable { case overview = "Overview", items = "Items", logs = "Logs", charts = "Charts"; var id: String { rawValue } }
@@ -52,6 +53,7 @@ struct AreaDetailView: View {
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
+                    Button("Ask about this", systemImage: "sparkle") { chat.open(prefill: "About my \(current.name) area: ") }
                     Button("Edit area", systemImage: "pencil") { showEditor = true }
                     Button(current.pinned ? "Unpin from Home" : "Pin to Home", systemImage: current.pinned ? "pin.slash" : "pin") {
                         Task { await store.updateArea(current, ["pinned": .bool(!current.pinned)]) }

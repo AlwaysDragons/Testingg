@@ -31,8 +31,8 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 2. Wrap Hevy and HealthKit as Integration adapters + sync into Supabase
 - [x] 3. Edge Function + tool calling
 - [x] 3.5. Design system + component library (tokens, Card, StatView, ProgressRing, SectionHeader, EmptyState, ListRow)
-- [ ] 4. SwiftUI Home + Area detail + realtime
-- [ ] 5. Chat wired to the agent
+- [x] 4. SwiftUI Home + Area detail + realtime
+- [x] 5. Chat wired to the agent
 - [ ] 5.5. Reminders: EventKit two-way sync + local notifications + settings + AI reminder tools
 - [ ] 6. Daily briefing + push notifications
 - [ ] 7. Widgets, Live Activities, App Intents
@@ -97,6 +97,17 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Components: `DSCard`, `StatView`, `ProgressRing`, `Sparkline`, `StatusDot`, `SectionHeader`, `EmptyState`, `ListRow` (+ `RowValue`), `PrimaryButtonStyle`. `DSCard` is prefixed because the existing `Theme.swift` already has a `Card`.
   - `DesignGallery` with light and dark Previews. You weren't around to approve the look, so I kept going; everything is token-driven, so tweaks are one-line changes.
   - The existing Forge screens keep their own `Theme` (untouched).
+
+- Phase 4 (Home + Area detail + realtime), in `Forge/Life/`:
+  - The life dashboard is now the app's root, with 3 tabs: Home, Today, Settings. The original five Forge tabs open unchanged from Gym area → "Open training" (a sheet, swipe down to close). Forge's own Settings opens from Settings → "Training, Hevy and Apple Health".
+  - Protected-file edits (you'd given me permission): `ForgeApp.swift` shows `LifeRootView` instead of `RootView` (RootView is kept and still compiles); the forced dark mode was removed from `ForgeApp`, `Info.plist` and `project.yml` so new screens follow light/dark. The existing screens still render dark (forced on their subtree).
+  - Data: `LifeRepository` (PostgREST), `LifeStore` (@Observable), and a hand-written Realtime client (Phoenix over a WebSocket, no SDK; reconnects with backoff, refreshes its token). Any change to your rows reloads that table within about 0.3 s.
+  - Home: greeting, a briefing line (local summary until Phase 6), the Today strip (due, overdue, reminders, habits left), and pinned area cards (one hero number, ring or trend line, one status dot). Long-press a card to unpin or hide it; pull to refresh runs the existing Hevy/Health refresh and reloads.
+  - Area detail: hero stat plus Overview | Items | Logs | Charts. Items: quick add, swipe to complete or delete, filter by status/priority/tag, grouped by due date, search. Charts: Swift Charts with 7D/30D/90D/1Y and tap to inspect. Gym adds readiness, weekly volume, recent PRs and workouts from the existing analysis.
+  - Item detail (edit, milestones, history), area editor (name, kind, icon, accent, featured number), Settings → Areas (drag to reorder, swipe to pin/hide) and Features (all off by default, stored in `user_settings.features`).
+  - Hero numbers: gym = workouts this week / training days; habits = done today; goals = average progress; finance = spent this month (optionally against `config.monthly_budget`); otherwise open items, or the latest metric.
+  - CI: `.github/workflows/ios-build.yml` compiles the Swift package for the iOS Simulator on a macOS runner (Xcode 16.4) on every push that touches `ios/Forge`. It runs without signing or secrets, and is my compile check since I can't run Xcode here.
+- Phase 5 (chat): a floating chat bar on Home opens the assistant sheet. History comes from `ai_messages`, and each reply shows a short line of what changed ("Saved item · Created reminder"). "Ask about this" in an area pre-fills the chat. After a reply the dashboard reloads (realtime also covers it).
 
 ## Manual steps I still need to do
 - Phase 3: follow "Phase 3" in `supabase/SETUP.md`: run migration 4, add the `ANTHROPIC_API_KEY` secret (and set a spend limit), deploy `ai-agent`. Then rebuild with `xtool dev` to check the new Swift compiles.
