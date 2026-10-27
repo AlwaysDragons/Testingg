@@ -13,3 +13,5 @@ supabase/.temp/
 supabase/.env
 .env
 Support/Secrets.plist
+ForgeWidgets/Info.plist
+ForgeWidgets/ForgeWidgets.entitlements

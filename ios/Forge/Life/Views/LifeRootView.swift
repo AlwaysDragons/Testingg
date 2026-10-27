@@ -31,6 +31,7 @@ private struct LifeTabs: View {
     @Environment(ChatStore.self) private var chat
     @Environment(ReminderSync.self) private var reminderSync
     @Environment(BriefingService.self) private var briefing
+    @Environment(AppModel.self) private var model
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
@@ -59,8 +60,13 @@ private struct LifeTabs: View {
             if new == .background { Task { await BriefingService.schedule(settings: store.settings) } }
         }
         .sheet(isPresented: $chat.isPresented) { ChatSheet().environment(chat).environment(store) }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name(IntentEvents.Event.dashboardChanged.rawValue))) { _ in
+            Task { await store.reloadAll() }
+        }
         .onAppear {
-            let store = store, reminderSync = reminderSync, chat = chat
+            let store = store, reminderSync = reminderSync, chat = chat, model = model, briefing = briefing
+            // Widgets read a snapshot the app writes after every reload.
+            store.onReloaded = [{ WidgetBridge.update(store: store, model: model, briefing: briefing.today?.text) }]
             NotificationScheduler.shared.install()
             NotificationScheduler.shared.store = store
             reminderSync.store = store
@@ -71,6 +77,7 @@ private struct LifeTabs: View {
                 if !actions.isEmpty { await Self.remindersChanged(store, reminderSync) }
             }]
             store.onTableChange = [{ tables in
+                WidgetBridge.update(store: store, model: model, briefing: briefing.today?.text)
                 if tables.contains("ai_messages") { Task { await chat.reload() } }
                 if tables.contains("reminders") || tables.contains("user_settings") { Task { await Self.remindersChanged(store, reminderSync) } }
                 if tables.contains("user_settings") { Task { await BriefingService.schedule(settings: store.settings) } }

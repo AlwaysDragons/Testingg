@@ -3,7 +3,7 @@
 name: iOS build
 on:
   push:
-    paths: ["ios/Forge/**", "ios/Package.swift", ".github/workflows/ios-build.yml"]
+    paths: ["ios/Forge/**", "ios/ForgeWidgets/**", "ios/Package.swift", "ios/project.yml", ".github/workflows/ios-build.yml"]
   workflow_dispatch:
 jobs:
   build:
@@ -17,5 +17,21 @@ jobs:
           set -o pipefail
           xcodebuild -version
           xcodebuild build -scheme Forge -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO 2>&1 \
+            | tee build.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build.log
+  # Generates the Xcode project from project.yml and builds the app + widget extension.
+  xcode-project:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate project
+        working-directory: ios
+        run: brew install xcodegen && xcodegen generate
+      - name: Build app + widgets for iOS Simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild build -project Forge.xcodeproj -scheme Forge -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO 2>&1 \
             | tee build.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
           grep -q "BUILD SUCCEEDED" build.log

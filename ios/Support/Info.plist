@@ -25,6 +25,8 @@
 	<array>
 		<string>fetch</string>
 	</array>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Forge syncs the Reminders lists you choose with your dashboard, both ways.</string>
 	<key>NSHealthUpdateUsageDescription</key>

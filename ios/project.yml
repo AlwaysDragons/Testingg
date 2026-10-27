@@ -38,9 +38,38 @@ targets:
         NSHealthUpdateUsageDescription: Forge does not write to Apple Health.
         BGTaskSchedulerPermittedIdentifiers: [com.forge.briefing]
         UIBackgroundModes: [fetch]
+        NSSupportsLiveActivities: true
         NSRemindersFullAccessUsageDescription: Forge syncs the Reminders lists you choose with your dashboard, both ways.
+    dependencies:
+      - target: ForgeWidgets
     entitlements:
       path: Support/Xcode.entitlements
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
+        com.apple.security.application-groups: [group.com.raoulreinder.forge]
+  # Widgets, Lock Screen / StandBy and the focus Live Activity (Phase 7). Xcode route only:
+  # xtool builds the app target from Package.swift and doesn't build this extension.
+  ForgeWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - ForgeWidgets
+      - Forge/Shared
+      - Forge/Design/HexColor.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.forge.widgets
+        CODE_SIGN_STYLE: Automatic
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: WIDGET
+    info:
+      path: ForgeWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Forge
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    entitlements:
+      path: ForgeWidgets/ForgeWidgets.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.raoulreinder.forge]
