@@ -81,6 +81,17 @@ actor SupabaseClient {
         onSessionChange(s)
     }
 
+    // MARK: Session access (realtime, user-scoped writes)
+
+    /// A fresh access token, refreshing it first if it is about to expire.
+    func accessToken() async throws -> String {
+        try await refreshIfNeeded()
+        guard let s = session else { throw APIError.missingKey("Supabase sign-in") }
+        return s.accessToken
+    }
+
+    var userId: String? { session?.userId }
+
     // MARK: PostgREST
 
     /// Calls `/rest/v1/<table>`. Returns the raw response body.

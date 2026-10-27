@@ -39,6 +39,9 @@ final class CloudSync {
         rebuildClient(session: Self.loadSession())
     }
 
+    /// The signed-in client, for the life dashboard's repository and realtime.
+    var supabase: SupabaseClient? { isSignedIn ? client : nil }
+
     var isSignedIn: Bool { if case .signedIn = auth { return true } else { return false } }
 
     // MARK: Setup + auth

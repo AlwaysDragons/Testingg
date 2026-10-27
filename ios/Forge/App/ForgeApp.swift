@@ -6,10 +6,9 @@ struct ForgeApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            // Life dashboard is the root; the original RootView tabs open from the Gym area (LegacyForgeView).
+            LifeRootView()
                 .environment(model)
-                .preferredColorScheme(.dark)
-                .tint(Theme.accent)
         }
     }
 }

@@ -30,7 +30,6 @@ targets:
         LSRequiresIPhoneOS: true
         UILaunchScreen:
           UIColorName: AccentColor
-        UIUserInterfaceStyle: Dark
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         UIApplicationSceneManifest:
