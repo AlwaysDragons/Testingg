@@ -39,6 +39,11 @@ targets:
         BGTaskSchedulerPermittedIdentifiers: [com.forge.briefing]
         UIBackgroundModes: [fetch]
         NSSupportsLiveActivities: true
+        NSSpeechRecognitionUsageDescription: Forge turns what you say into a quick capture.
+        NSMicrophoneUsageDescription: Forge listens only while you dictate a capture.
+        CFBundleURLTypes:
+          - CFBundleURLName: forge
+            CFBundleURLSchemes: [forge]
         NSRemindersFullAccessUsageDescription: Forge syncs the Reminders lists you choose with your dashboard, both ways.
     dependencies:
       - target: ForgeWidgets

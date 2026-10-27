@@ -35,8 +35,8 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 5. Chat wired to the agent
 - [x] 5.5. Reminders: EventKit two-way sync + local notifications + settings + AI reminder tools
 - [x] 6. Daily briefing + push notifications
-- [ ] 7. Widgets, Live Activities, App Intents
-- [ ] 8. Quick capture + inbox + routing + Siri/Action Button/widget entry
+- [x] 7. Widgets, Live Activities, App Intents
+- [x] 8. Quick capture + inbox + routing + Siri/Action Button/widget entry
 - [ ] 9. Check-ins + weekly review + daily journal
 - [ ] 10. Calendar integration + unified Today timeline
 - [ ] 11. Habits/streaks + focus timer + "What should I do now?" + goals with milestones
@@ -125,7 +125,24 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Remote push (APNs) isn't built: it needs a paid developer account, an APNs key and a server sender. Local notifications cover the briefing, reminders, check-ins and nudges without it.
   - Edits: `ForgeApp.swift` +2 lines (`.backgroundTask(.appRefresh(...))`); Info.plist / project.yml add `BGTaskSchedulerPermittedIdentifiers` and `UIBackgroundModes: fetch`.
 
+- Phase 7 (widgets, Live Activities, App Intents):
+  - New `ForgeWidgets/` extension (Xcode route via `project.yml`): a Today widget (small, medium, Lock Screen circular/rectangular/inline; StandBy uses the small one), a Habits widget with one-tap check-off buttons, a Capture widget, and the focus timer Live Activity UI (Dynamic Island + Lock Screen).
+  - Data handoff: the app writes `widget-snapshot.json` to the App Group `group.com.raoulreinder.forge` after every reload and asks WidgetKit to refresh. Habit buttons run `LogHabitIntent` (a LiveActivityIntent, so it runs in the app's process with your session).
+  - App Intents (main app, so they work with xtool too): "Ask Forge" and, from Phase 8, "Capture in Forge" and "Open quick capture". Assign any of them to the Action Button in Settings → Action Button → Shortcut.
+  - Limits: xtool builds only the app (Package.swift), not app extensions, so widgets and Live Activities need the Xcode route (`xcodegen` + Xcode). App Groups need the capability on a paid developer account; without it the widgets show sample data.
+  - CI now has a second job: XcodeGen + build of the app + widget extension.
+- Phase 8 (quick capture, behind Settings → Features → Quick capture):
+  - The capture sheet (type or dictate on-device with the Speech framework) saves to `captures` first, so nothing is lost, then the agent's `capture` task routes it into a task, reminder, expense, metric or note, and shows "Sorted: …" with Undo (auto-closes after 4 s).
+  - Undo: migration 5's `ai_undo_capture` deletes exactly what routing created (recorded in `captures.data.created`); reminders already in Apple Reminders become `pending_delete`. Areas routing created are removed only if still empty.
+  - The Inbox (Home → … → Inbox) holds captures that couldn't be sorted (swipe to retry or delete) plus recently sorted ones (swipe to undo).
+  - Entry points: Home "+" (when enabled), Siri "Capture in Forge" (no app launch), the Action Button ("Open quick capture"), the Capture widget, `forge://capture`.
+  - New agent tool `capture(text)` parks a thought in the inbox from chat.
+  - Info.plist / project.yml: speech + microphone usage strings, the `forge://` URL scheme.
+  - Verified: 7 SQL checks for capture/undo (including cross-user), Deno tests for the created-rows tracking and the finish schema.
+
 ## Manual steps I still need to do
+- Phase 8: run `migrations/20261027000005_capture.sql`, redeploy `ai-agent`, turn on Settings → Features → Quick capture.
+- Phase 7 (optional, Xcode route): `brew install xcodegen && xcodegen` in `ios/`, open Forge.xcodeproj, set your team and the App Group on both targets, run.
 - Phase 6: redeploy `ai-agent` (new file `tasks.ts`). Set a briefing time in Settings → Reminders and notifications.
 - Phase 3: follow "Phase 3" in `supabase/SETUP.md`: run migration 4, add the `ANTHROPIC_API_KEY` secret (and set a spend limit), deploy `ai-agent`. Then rebuild with `xtool dev` to check the new Swift compiles.
 - Phase 2: in the Supabase SQL Editor, run `supabase/migrations/20261027000003_upsert_constraints.sql`.

@@ -133,7 +133,10 @@ async function runTask(mode: string, params: Record<string, unknown>, db: Db) {
       finish: task.finish,
     });
     if (result.result === undefined) return json({ error: "task_incomplete", reply: result.reply }, 502);
-    return json({ result: result.result, reply: result.reply, device_actions: result.deviceActions, tool_calls: result.toolCalls,
+    const final = task.after
+      ? await task.after({ result: result.result, toolResults: result.toolResults ?? [], params, db })
+      : result.result;
+    return json({ result: final, reply: result.reply, device_actions: result.deviceActions, tool_calls: result.toolCalls,
       tool_results: result.toolResults ?? [] });
   } catch (err) {
     console.error(`ai-agent task ${mode} failed`, err);

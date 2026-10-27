@@ -6,6 +6,7 @@ struct HomeView: View {
     @Environment(AppModel.self) private var model
     @Environment(CloudSync.self) private var cloud
     @Environment(BriefingService.self) private var briefing
+    @Environment(CaptureStore.self) private var captures
     @State private var showNewArea = false
     @State private var showCloud = false
     @State private var briefingExpanded = false
@@ -59,8 +60,19 @@ struct HomeView: View {
                 if let area = store.area(id) { AreaDetailView(area: area) }
             }
             .toolbar {
+                if store.isEnabled(.capture) {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { captures.open() } label: { Image(systemName: "plus").fontWeight(DS.symbolWeight) }
+                            .accessibilityLabel("Capture")
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
+                        if store.isEnabled(.capture) {
+                            NavigationLink { InboxView() } label: {
+                                Label(captures.inbox.isEmpty ? "Inbox" : "Inbox (\(captures.inbox.count))", systemImage: "tray")
+                            }
+                        }
                         Button("New area", systemImage: "plus") { showNewArea = true }
                     } label: {
                         Image(systemName: "ellipsis").fontWeight(DS.symbolWeight)

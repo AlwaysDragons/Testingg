@@ -185,6 +185,15 @@ export const TOOLS = {
       args: { p_area: i.area ?? null, p_from: i.from ?? null, p_to: i.to ?? null, p_include_done: i.include_done ?? false },
     }),
   }),
+
+  capture: tool({
+    description: "Park a thought in the inbox to sort later (when the user says to note something without deciding where it goes).",
+    schema: z.strictObject({
+      text: z.string().trim().min(1).max(2000),
+      source: z.enum(["text", "voice", "siri", "widget"]).default("text"),
+    }),
+    toRpc: (i) => ({ fn: "ai_capture", args: { p_text: i.text, p_source: i.source } }),
+  }),
 } satisfies Record<string, ToolSpec<any>>;
 
 export type ToolName = keyof typeof TOOLS;

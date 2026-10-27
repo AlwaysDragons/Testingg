@@ -25,6 +25,21 @@
 	<array>
 		<string>fetch</string>
 	</array>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Forge turns what you say into a quick capture.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Forge listens only while you dictate a capture.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>forge</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>forge</string>
+			</array>
+		</dict>
+	</array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSRemindersFullAccessUsageDescription</key>

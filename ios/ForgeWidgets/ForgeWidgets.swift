@@ -10,6 +10,7 @@ struct ForgeWidgetsBundle: WidgetBundle {
     var body: some Widget {
         TodayWidget()
         HabitsWidget()
+        CaptureWidget()
         FocusLiveActivity()
     }
 }
@@ -191,5 +192,23 @@ struct FocusLiveActivity: Widget {
                 Image(systemName: "timer")
             }
         }
+    }
+}
+
+// MARK: - Capture widget (Lock Screen / Home Screen shortcut)
+
+struct CaptureWidget: Widget {
+    var body: some WidgetConfiguration {
+        StaticConfiguration(kind: "ForgeCapture", provider: SnapshotProvider()) { _ in
+            ZStack {
+                AccessoryWidgetBackground()
+                Image(systemName: "plus").font(.title2.weight(.medium))
+            }
+            .containerBackground(.fill.tertiary, for: .widget)
+            .widgetURL(URL(string: "forge://capture"))
+        }
+        .configurationDisplayName("Quick capture")
+        .description("Capture a thought in one tap.")
+        .supportedFamilies([.accessoryCircular, .systemSmall])
     }
 }

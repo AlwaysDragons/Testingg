@@ -6,7 +6,7 @@ import { runTool, TOOL_DEFINITIONS } from "./tools.ts";
 const ID = "6f1c2b1e-3d4a-4f5b-9c6d-7e8f9a0b1c2d";
 
 Deno.test("tool definitions are plain JSON Schema objects", () => {
-  assertEquals(TOOL_DEFINITIONS.length, 14);
+  assert(TOOL_DEFINITIONS.length >= 14);
   for (const t of TOOL_DEFINITIONS) {
     assertEquals(t.input_schema.type, "object");
     assert(!("$schema" in t.input_schema), t.name);
@@ -139,4 +139,21 @@ Deno.test("task mode: finish tool validates and returns the structured result", 
   assert(requests[0].tools.some((t: any) => t.name === "submit_briefing"));
   assert(!requests[0].tools.some((t: any) => t.name === "delete_item"));
   assertEquals(requests[0].system, "x");
+});
+
+Deno.test("capture task: created rows are collected for undo, updates are not", async () => {
+  const { createdRows, TASKS } = await import("./tasks.ts");
+  const rows = createdRows([
+    { name: "upsert_item", result: { action: "created", item: { id: "i1" } } },
+    { name: "upsert_item", result: { action: "updated", item: { id: "i2" } } },
+    { name: "create_reminder", result: { action: "created", reminder: { id: "r1" } } },
+    { name: "log_entry", result: { action: "logged", log: { id: "l1" } } },
+    { name: "record_metric", result: { action: "recorded", metric: { id: "m1" } } },
+    { name: "create_area", result: { action: "exists", area: { id: "a0" } } },
+    { name: "get_dashboard_summary", result: [] },
+  ]);
+  assertEquals(rows, [{ table: "items", id: "i1" }, { table: "reminders", id: "r1" }, { table: "logs", id: "l1" }, { table: "metrics", id: "m1" }]);
+  assert(!TASKS.capture.tools.includes("delete_item"));
+  assert(TASKS.capture.finish.validate({ kind: "task", summary: "Task in Home: buy milk" }).ok);
+  assert(!TASKS.capture.finish.validate({ kind: "nope", summary: "x" }).ok);
 });

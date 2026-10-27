@@ -4,11 +4,13 @@ import SwiftUI
 /// The existing Forge screens live inside the Gym area (see `LegacyForgeView`).
 struct LifeRootView: View {
     @Environment(AppModel.self) private var model
+    @Environment(CaptureStore.self) private var captures
     @Environment(\.scenePhase) private var phase
     @State private var store = LifeStore()
     @State private var chat = ChatStore()
     @State private var reminderSync = ReminderSync()
     @State private var briefing = BriefingService()
+    @State private var captures = CaptureStore()
 
     var body: some View {
         LifeTabs()
@@ -16,6 +18,7 @@ struct LifeRootView: View {
             .environment(chat)
             .environment(reminderSync)
             .environment(briefing)
+            .environment(captures)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -36,6 +39,7 @@ private struct LifeTabs: View {
 
     var body: some View {
         @Bindable var chat = chat
+        @Bindable var captures = captures
         TabView {
             HomeView().tabItem { Label("Home", systemImage: "square.grid.2x2") }
             TodayView().tabItem { Label("Today", systemImage: "sun.max") }
@@ -46,6 +50,7 @@ private struct LifeTabs: View {
         .task(id: cloud.isSignedIn) {
             await store.connect(cloud.supabase)
             await chat.connect(cloud.supabase)
+            await captures.connect(cloud.supabase)
             await Self.remindersChanged(store, reminderSync)
             await briefing.refreshIfNeeded(cloud.supabase)
             await BriefingService.schedule(settings: store.settings)
@@ -60,10 +65,21 @@ private struct LifeTabs: View {
             if new == .background { Task { await BriefingService.schedule(settings: store.settings) } }
         }
         .sheet(isPresented: $chat.isPresented) { ChatSheet().environment(chat).environment(store) }
+        .sheet(isPresented: $captures.isPresented) { CaptureSheet().environment(captures).environment(store) }
+        // forge://capture (widgets, Action Button), forge://home
+        .onOpenURL { url in
+            guard url.scheme == "forge" else { return }
+            if url.host == "capture" { captures.open() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: Notification.Name(IntentEvents.Event.openCapture.rawValue))) { _ in
+            IntentEvents.pendingCapture = false
+            captures.open()
+        }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name(IntentEvents.Event.dashboardChanged.rawValue))) { _ in
             Task { await store.reloadAll() }
         }
         .onAppear {
+            if IntentEvents.pendingCapture { IntentEvents.pendingCapture = false; captures.open() }
             let store = store, reminderSync = reminderSync, chat = chat, model = model, briefing = briefing
             // Widgets read a snapshot the app writes after every reload.
             store.onReloaded = [{ WidgetBridge.update(store: store, model: model, briefing: briefing.today?.text) }]
@@ -79,6 +95,7 @@ private struct LifeTabs: View {
             store.onTableChange = [{ tables in
                 WidgetBridge.update(store: store, model: model, briefing: briefing.today?.text)
                 if tables.contains("ai_messages") { Task { await chat.reload() } }
+                if tables.contains("captures") { Task { await captures.reload() } }
                 if tables.contains("reminders") || tables.contains("user_settings") { Task { await Self.remindersChanged(store, reminderSync) } }
                 if tables.contains("user_settings") { Task { await BriefingService.schedule(settings: store.settings) } }
             }]
