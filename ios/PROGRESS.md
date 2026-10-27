@@ -33,7 +33,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 3.5. Design system + component library (tokens, Card, StatView, ProgressRing, SectionHeader, EmptyState, ListRow)
 - [x] 4. SwiftUI Home + Area detail + realtime
 - [x] 5. Chat wired to the agent
-- [ ] 5.5. Reminders: EventKit two-way sync + local notifications + settings + AI reminder tools
+- [x] 5.5. Reminders: EventKit two-way sync + local notifications + settings + AI reminder tools
 - [ ] 6. Daily briefing + push notifications
 - [ ] 7. Widgets, Live Activities, App Intents
 - [ ] 8. Quick capture + inbox + routing + Siri/Action Button/widget entry
@@ -108,6 +108,15 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Hero numbers: gym = workouts this week / training days; habits = done today; goals = average progress; finance = spent this month (optionally against `config.monthly_budget`); otherwise open items, or the latest metric.
   - CI: `.github/workflows/ios-build.yml` compiles the Swift package for the iOS Simulator on a macOS runner (Xcode 16.4) on every push that touches `ios/Forge`. It runs without signing or secrets, and is my compile check since I can't run Xcode here.
 - Phase 5 (chat): a floating chat bar on Home opens the assistant sheet. History comes from `ai_messages`, and each reply shows a short line of what changed ("Saved item · Created reminder"). "Ask about this" in an area pre-fills the chat. After a reply the dashboard reloads (realtime also covers it).
+
+- Phase 5.5 (reminders), in `Forge/Life/Reminders/`:
+  - Two-way Apple Reminders sync (EventKit, on-device). You pick the lists to sync and map each to an area (Settings → Reminders and notifications). New app or AI reminders go to the list mapped to their area, else your chosen default list.
+  - The merge rules (`ReminderMerge`, unit-tested): rows are matched on `apple_reminder_id`, so nothing duplicates. The most recent edit wins (`source_modified_at` vs EventKit `lastModifiedDate`); deletions propagate both ways; open reminders and those completed in the last 7 days are imported. Sync runs on launch, on foreground, after every reminders change (including agent replies via realtime), and when Apple Reminders changes.
+  - notify_mode: `app` = local notification (actions: Done, Snooze 10 min / 1 hour, Tomorrow; grouped; quiet hours move alerts to the end of the window; up to 50 pending). `reminders_app` = an alarm on the Apple reminder. `none` = silent.
+  - Permission is asked in context: when you turn on notifications, create a reminder that notifies, or connect Apple Reminders.
+  - UI: Reminders view (Today / Upcoming / Done; swipe to complete, snooze or delete; long-press for more snooze options; quick add with a bell toggle, set for the next full hour), reminder editor, a reminders section on Today, and settings (global toggle, default notify mode, quiet hours, briefing time, lists).
+  - Info.plist / project.yml: added `NSRemindersFullAccessUsageDescription`.
+  - Decision: reminders imported from Apple are stored as `reminders` rows (linked to an area by list), not as items; items can still point at a reminder via `item_id`.
 
 ## Manual steps I still need to do
 - Phase 3: follow "Phase 3" in `supabase/SETUP.md`: run migration 4, add the `ANTHROPIC_API_KEY` secret (and set a spend limit), deploy `ai-agent`. Then rebuild with `xtool dev` to check the new Swift compiles.

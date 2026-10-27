@@ -12,6 +12,7 @@ struct LifeSettingsView: View {
                 Section {
                     NavigationLink("Areas") { AreasSettingsView() }
                     NavigationLink("Features") { FeaturesSettingsView() }
+                    NavigationLink("Reminders and notifications") { RemindersSettingsView() }
                 }
                 .listRowBackground(DS.Palette.surface)
                 Section {

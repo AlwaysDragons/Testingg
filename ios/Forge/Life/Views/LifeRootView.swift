@@ -7,11 +7,13 @@ struct LifeRootView: View {
     @Environment(\.scenePhase) private var phase
     @State private var store = LifeStore()
     @State private var chat = ChatStore()
+    @State private var reminderSync = ReminderSync()
 
     var body: some View {
         LifeTabs()
             .environment(store)
             .environment(chat)
+            .environment(reminderSync)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -25,6 +27,8 @@ private struct LifeTabs: View {
     @Environment(CloudSync.self) private var cloud
     @Environment(LifeStore.self) private var store
     @Environment(ChatStore.self) private var chat
+    @Environment(ReminderSync.self) private var reminderSync
+    @Environment(\.scenePhase) private var phase
 
     var body: some View {
         @Bindable var chat = chat
@@ -38,13 +42,38 @@ private struct LifeTabs: View {
         .task(id: cloud.isSignedIn) {
             await store.connect(cloud.supabase)
             await chat.connect(cloud.supabase)
+            await Self.remindersChanged(store, reminderSync)
+        }
+        .onChange(of: phase) { _, new in
+            if new == .active { Task { await Self.remindersChanged(store, reminderSync) } }
         }
         .sheet(isPresented: $chat.isPresented) { ChatSheet().environment(chat).environment(store) }
         .onAppear {
-            // The agent's changes arrive by realtime; also refresh right after a reply.
-            chat.onDeviceActions = [{ _ in await store.reloadAll() }]
-            store.onTableChange = [{ tables in if tables.contains("ai_messages") { Task { await chat.reload() } } }]
+            let store = store, reminderSync = reminderSync, chat = chat
+            NotificationScheduler.shared.install()
+            NotificationScheduler.shared.store = store
+            reminderSync.store = store
+            // The agent's changes arrive by realtime; also refresh right after a reply and push
+            // any new reminders to Apple Reminders (EventKit writes happen on-device only).
+            chat.onDeviceActions = [{ actions in
+                await store.reloadAll()
+                if !actions.isEmpty { await Self.remindersChanged(store, reminderSync) }
+            }]
+            store.onTableChange = [{ tables in
+                if tables.contains("ai_messages") { Task { await chat.reload() } }
+                if tables.contains("reminders") || tables.contains("user_settings") { Task { await Self.remindersChanged(store, reminderSync) } }
+            }]
         }
+    }
+}
+
+extension LifeTabs {
+    /// Sync Apple Reminders and reschedule local notifications.
+    @MainActor
+    static func remindersChanged(_ store: LifeStore, _ reminderSync: ReminderSync) async {
+        guard store.isConnected else { return }
+        await reminderSync.sync()
+        await NotificationScheduler.shared.reschedule(store.reminders, settings: store.settings)
     }
 }
 
