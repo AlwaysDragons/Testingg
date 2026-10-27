@@ -4,8 +4,6 @@ import SwiftUI
 /// The existing Forge screens live inside the Gym area (see `LegacyForgeView`).
 struct LifeRootView: View {
     @Environment(AppModel.self) private var model
-    @Environment(CaptureStore.self) private var captures
-    @Environment(EverydayStore.self) private var everyday
     @Environment(\.scenePhase) private var phase
     @State private var store = LifeStore()
     @State private var chat = ChatStore()
@@ -38,6 +36,8 @@ private struct LifeTabs: View {
     @Environment(ReminderSync.self) private var reminderSync
     @Environment(BriefingService.self) private var briefing
     @Environment(AppModel.self) private var model
+    @Environment(CaptureStore.self) private var captures
+    @Environment(EverydayStore.self) private var everyday
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
