@@ -218,6 +218,30 @@ export const TOOLS = {
     schema: z.strictObject({ date: z.iso.date().optional() }),
     toRpc: (i) => ({ fn: "ai_day_digest", args: { p_date: i.date ?? null } }),
   }),
+
+  log_habit: tool({
+    description: "Mark a habit done for a day (default today). Safe to repeat: one completion per day. Returns the streak.",
+    schema: z.strictObject({ item_id: uuid, date: z.iso.date().optional() }),
+    toRpc: (i) => ({ fn: "ai_log_habit", args: { p_item_id: i.item_id, p_date: i.date ?? null } }),
+  }),
+
+  get_streaks: tool({
+    description: "Current and longest streak, done today, and last-7-day count for every habit (optionally one area).",
+    schema: z.strictObject({ area: areaRef.optional() }),
+    toRpc: (i) => ({ fn: "ai_streaks", args: { p_area: i.area ?? null } }),
+  }),
+
+  start_focus_session: tool({
+    description: "Start a focus session for an area (ends any running one). The app shows the timer.",
+    schema: z.strictObject({ area: areaRef, minutes: z.number().int().min(1).max(240).default(25) }),
+    toRpc: (i) => ({ fn: "ai_start_focus", args: { p_area: i.area, p_minutes: i.minutes } }),
+  }),
+
+  end_focus_session: tool({
+    description: "End the running focus session and log its minutes.",
+    schema: z.strictObject({}),
+    toRpc: () => ({ fn: "ai_end_focus", args: {} }),
+  }),
 } satisfies Record<string, ToolSpec<any>>;
 
 export type ToolName = keyof typeof TOOLS;

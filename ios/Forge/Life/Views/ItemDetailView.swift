@@ -14,6 +14,8 @@ struct ItemDetailView: View {
     @State private var due = Date()
     @State private var tags = ""
     @State private var repeats = false
+    @State private var grace = 0
+    @State private var skipWeekends = false
     @State private var newMilestone = ""
     @State private var loaded = false
 
@@ -45,6 +47,10 @@ struct ItemDetailView: View {
                 Toggle("Due date", isOn: $hasDue)
                 if hasDue { DatePicker("Due", selection: $due) }
                 Toggle("Repeats daily (habit)", isOn: $repeats)
+                if repeats {
+                    Stepper("Grace: \(grace) missed day\(grace == 1 ? "" : "s")", value: $grace, in: 0...3)
+                    Toggle("Weekends don't count", isOn: $skipWeekends)
+                }
                 TextField("Tags, comma separated", text: $tags)
                     .textInputAutocapitalization(.never)
             }
@@ -111,6 +117,8 @@ struct ItemDetailView: View {
         due = i.dueDate ?? Calendar.current.startOfDay(for: Date()).addingTimeInterval(86_400 + 9 * 3600)
         tags = i.tags.joined(separator: ", ")
         repeats = i.isHabit
+        grace = i.data["grace"]?.int ?? 0
+        skipWeekends = i.data["skip_days"]?.array.compactMap(\.int) == [6, 7]
     }
 
     /// Saves only what changed when leaving the screen.
@@ -131,6 +139,10 @@ struct ItemDetailView: View {
         let tagList = tags.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         if tagList != i.tags { fields["tags"] = .of(tagList) }
         if repeats != i.isHabit { fields["recurrence"] = repeats ? .string("FREQ=DAILY") : .null }
+        let oldSkip = i.data["skip_days"]?.array.compactMap(\.int) == [6, 7]
+        if repeats, grace != (i.data["grace"]?.int ?? 0) || skipWeekends != oldSkip {
+            fields["data"] = i.data.setting("grace", .int(grace)).setting("skip_days", skipWeekends ? .array([.int(6), .int(7)]) : .array([]))
+        }
         guard !fields.isEmpty else { return }
         Task { await store.update(i, fields) }
     }

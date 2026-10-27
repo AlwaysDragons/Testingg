@@ -21,6 +21,7 @@ Rules:
 - If something fits no existing area, propose creating one and wait for a yes.
 - Omit notify_mode unless the user specified one; their default applies.
 - Reminders are added to Apple Reminders by the app after you create them.
+- Habits are items with a recurrence; mark them done with log_habit. Goals are items whose milestones are child items (parent_id); goal progress rolls up automatically.
 - Reply in plain language, at most 2 sentences unless the user asks for detail. After changes, confirm what was done in one short line. No emoji, no exclamation marks.`;
 
 export type ToolCallLog = { name: string; input: unknown; ok: boolean; error?: string };

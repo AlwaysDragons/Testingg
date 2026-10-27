@@ -39,7 +39,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 8. Quick capture + inbox + routing + Siri/Action Button/widget entry
 - [x] 9. Check-ins + weekly review + daily journal
 - [x] 10. Calendar integration + unified Today timeline
-- [ ] 11. Habits/streaks + focus timer + "What should I do now?" + goals with milestones
+- [x] 11. Habits/streaks + focus timer + "What should I do now?" + goals with milestones
 - [ ] 12. Health features on existing HealthKit/Hevy code (PRs, recovery, skip-or-push, nutrition, measurements, photos)
 - [ ] 13. Money (expenses, budgets, subscriptions, savings goals)
 - [ ] 14. Smart AI (insights, nudges, universal search)
@@ -155,7 +155,17 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - The briefing also gets the calendar summary when Calendar is on.
   - Info.plist / project.yml: `NSCalendarsFullAccessUsageDescription`.
 
+- Phase 11 (habits, focus, "What should I do now?", goals):
+  - Migration 7: `ai_log_habit` (one completion per habit per day), `ai_habit_streak` / `ai_streaks` (current and longest streak, done today, last 7 days), focus sessions (`ai_start_focus` / `ai_end_focus` / `ai_focus_totals`, stored as logs with `data.focus`), and an `items` trigger that rolls goal progress up from milestones (share of milestones done; the goal moves to in progress once one is done).
+  - Streak rules per habit (item detail): grace days (0-3 missed days allowed) and "weekends don't count". The same SQL powers the app and the assistant, so they always agree.
+  - Habits: one-tap check-off in the area's "Habits today" section (with streak), from the Habits widget, or by asking the assistant (`log_habit`).
+  - Focus timer (Today → … → Focus): pick an area and 15/25/45/60 minutes. Starts a Live Activity (Lock Screen / Dynamic Island; Xcode route), notifies at the end, and logs the minutes to the area. A running session is restored after relaunch. Shows the last 7 days' minutes per area.
+  - "What should I do now?" (Today → …): the `next_action` task picks one action plus 2 alternates from what's due, habits left, the latest check-in energy and your next calendar gap, with "Start N min focus" / "Mark done" buttons.
+  - Agent tools: `log_habit`, `get_streaks`, `start_focus_session`, `end_focus_session`. Goals = items with milestones (parent_id), already editable in item detail.
+  - Verified: 16 SQL checks (streaks with and without grace, idempotent logging, focus minutes and totals, one open session, goal roll-up on complete and delete); the earlier SQL suites still pass.
+
 ## Manual steps I still need to do
+- Phase 11: run `migrations/20261027000007_habits_focus_goals.sql`, redeploy `ai-agent`.
 - Phase 10: redeploy `ai-agent` (plan_day task); turn on Features → Calendar and connect it in Settings → Calendar.
 - Phase 9: run `migrations/20261027000006_checkins_review_journal.sql`, redeploy `ai-agent`, turn on the features you want and set check-in times.
 - Phase 8: run `migrations/20261027000005_capture.sql`, redeploy `ai-agent`, turn on Settings → Features → Quick capture.

@@ -8,6 +8,7 @@ struct TodayView: View {
     @Environment(EverydayStore.self) private var everyday
     @Environment(CalendarService.self) private var calendar
     @State private var showPlan = false
+    @Environment(FocusStore.self) private var focus
 
     /// With Calendar on, today is one timeline of events, timed items and reminders.
     private var useTimeline: Bool { store.isEnabled(.calendar) && calendar.authorized }
@@ -75,9 +76,16 @@ struct TodayView: View {
             .sheet(item: $editingReminder) { ReminderEditor(reminder: $0) }
             .sheet(isPresented: $showPlan) { PlanDaySheet() }
             .toolbar {
-                if useTimeline {
+                if useTimeline || store.isEnabled(.focus) || store.isEnabled(.nextAction) {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Plan my day") { showPlan = true }
+                        Menu {
+                            if store.isEnabled(.nextAction) { Button("What should I do now?", systemImage: "sparkle") { focus.showNextAction = true } }
+                            if store.isEnabled(.focus) {
+                                Button(focus.active == nil ? "Focus" : "Focus (running)", systemImage: "timer") { focus.showSheet = true }
+                            }
+                            if useTimeline { Button("Plan my day", systemImage: "calendar.badge.plus") { showPlan = true } }
+                        } label: { Image(systemName: "ellipsis").fontWeight(DS.symbolWeight) }
+                        .accessibilityLabel("More")
                     }
                 }
             }

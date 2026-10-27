@@ -86,8 +86,9 @@ struct AreaDetailView: View {
 
     @ViewBuilder
     private var overview: some View {
+        HabitsSection(area: current)
         if current.kind == "gym" { gymOverview }
-        let upcoming = store.items(in: current).filter { !$0.isDone }.prefix(3)
+        let upcoming = store.items(in: current).filter { !$0.isDone && !$0.isHabit }.prefix(3)
         if !upcoming.isEmpty {
             Section {
                 ForEach(Array(upcoming)) { item in itemRow(item) }

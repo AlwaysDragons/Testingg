@@ -6,7 +6,7 @@ import type { FinishTool } from "./agent.ts";
 import { TOOL_DEFINITIONS, type ToolName } from "./tools.ts";
 
 export const READ_ONLY_TOOLS: ToolName[] = [
-  "query_area", "get_dashboard_summary", "get_daily_briefing", "list_reminders", "get_weekly_review", "get_day_digest",
+  "query_area", "get_dashboard_summary", "get_daily_briefing", "list_reminders", "get_weekly_review", "get_day_digest", "get_streaks",
 ];
 
 // deno-lint-ignore no-explicit-any
@@ -169,6 +169,21 @@ TASKS.plan_day = {
     note: z.string().max(240).optional(),
   })),
   effort: "medium",
+};
+
+TASKS.next_action = {
+  instructions: `Task: answer "What should I do now?". Look at what's due or overdue (get_daily_briefing), habits left (get_streaks) and today's latest check-in energy (in the briefing), plus the calendar gap the device sent. Then call submit_next.
+- action: the single best next thing that fits the time until the next event and the user's energy (low energy → something small or a habit). Include item_id when it's an existing item, and minutes (how long it takes).
+- alternates: exactly 2 other options, same shape.
+- why: one short sentence. Never invent items; only use items from the tools.`,
+  prompt: (p) => `What should I do now?\n${typeof p.device_context === "string" ? p.device_context : ""}`,
+  tools: READ_ONLY_TOOLS,
+  finish: finishTool("submit_next", "Return the suggestion.", z.strictObject({
+    action: z.strictObject({ title: z.string().trim().min(1).max(120), item_id: z.uuid().optional(), area: z.string().max(60).optional(), minutes: z.number().int().min(1).max(480).optional() }),
+    alternates: z.array(z.strictObject({ title: z.string().trim().min(1).max(120), item_id: z.uuid().optional(), area: z.string().max(60).optional(), minutes: z.number().int().min(1).max(480).optional() })).max(2),
+    why: z.string().trim().max(200),
+  })),
+  effort: "low",
 };
 
 export function toolsFor(task: Task) {

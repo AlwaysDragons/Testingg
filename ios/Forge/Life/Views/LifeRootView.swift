@@ -12,6 +12,8 @@ struct LifeRootView: View {
     @State private var captures = CaptureStore()
     @State private var everyday = EverydayStore()
     @State private var calendar = CalendarService()
+    @State private var habits = HabitsStore()
+    @State private var focus = FocusStore()
 
     var body: some View {
         LifeTabs()
@@ -22,6 +24,8 @@ struct LifeRootView: View {
             .environment(captures)
             .environment(everyday)
             .environment(calendar)
+            .environment(habits)
+            .environment(focus)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -41,12 +45,15 @@ private struct LifeTabs: View {
     @Environment(CaptureStore.self) private var captures
     @Environment(EverydayStore.self) private var everyday
     @Environment(CalendarService.self) private var calendar
+    @Environment(HabitsStore.self) private var habits
+    @Environment(FocusStore.self) private var focus
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
         @Bindable var chat = chat
         @Bindable var captures = captures
         @Bindable var everyday = everyday
+        @Bindable var focus = focus
         TabView {
             HomeView().tabItem { Label("Home", systemImage: "square.grid.2x2") }
             TodayView().tabItem { Label("Today", systemImage: "sun.max") }
@@ -59,6 +66,8 @@ private struct LifeTabs: View {
             await chat.connect(cloud.supabase)
             await captures.connect(cloud.supabase)
             await everyday.connect(cloud.supabase)
+            await habits.connect(cloud.supabase)
+            await focus.connect(cloud.supabase, store: store)
             await Self.scheduleEveryday(store)
             await Self.remindersChanged(store, reminderSync)
             await briefing.refreshIfNeeded(cloud.supabase, deviceContext: deviceContext)
@@ -76,6 +85,10 @@ private struct LifeTabs: View {
         .sheet(isPresented: $chat.isPresented) { ChatSheet().environment(chat).environment(store) }
         .sheet(isPresented: $captures.isPresented) { CaptureSheet().environment(captures).environment(store) }
         .sheet(isPresented: $everyday.showCheckin) { CheckinSheet().environment(everyday) }
+        .sheet(isPresented: $focus.showSheet) { FocusSheet().environment(focus).environment(store) }
+        .sheet(isPresented: $focus.showNextAction) {
+            NextActionSheet().environment(focus).environment(store).environment(calendar).environment(cloud)
+        }
         .sheet(isPresented: $everyday.showReview) {
             NavigationStack { WeeklyReviewView() }.environment(everyday).environment(store)
         }
@@ -93,10 +106,11 @@ private struct LifeTabs: View {
         }
         .onAppear {
             if IntentEvents.pendingCapture { IntentEvents.pendingCapture = false; captures.open() }
-            let store = store, reminderSync = reminderSync, chat = chat, model = model, briefing = briefing, everyday = everyday
+            let store = store, reminderSync = reminderSync, chat = chat, model = model, briefing = briefing, everyday = everyday, habits = habits, focus = focus
             NotificationScheduler.shared.tapHandlers = [
                 "checkin.": { _ in everyday.showCheckin = true },
                 "review.": { _ in everyday.showReview = true },
+                "focus.": { _ in focus.showSheet = true },
             ]
             // Widgets read a snapshot the app writes after every reload.
             store.onReloaded = [{ WidgetBridge.update(store: store, model: model, briefing: briefing.today?.text) }]
@@ -121,6 +135,7 @@ private struct LifeTabs: View {
                     }
                 }
                 if tables.contains("checkins") || tables.contains("journal_entries") { Task { await everyday.reload() } }
+                if tables.contains("logs") || tables.contains("items") { Task { await habits.reload() } }
             }]
         }
     }
