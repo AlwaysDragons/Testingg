@@ -18,6 +18,7 @@ struct LifeRootView: View {
     @State private var measurements = MeasurementStore()
     @State private var money = MoneyStore()
     @State private var smart = SmartStore()
+    @State private var admin = AdminStore()
 
     var body: some View {
         LifeTabs()
@@ -34,6 +35,7 @@ struct LifeRootView: View {
             .environment(measurements)
             .environment(money)
             .environment(smart)
+            .environment(admin)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -59,6 +61,7 @@ private struct LifeTabs: View {
     @Environment(MeasurementStore.self) private var measurements
     @Environment(MoneyStore.self) private var money
     @Environment(SmartStore.self) private var smart
+    @Environment(AdminStore.self) private var admin
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
@@ -83,6 +86,7 @@ private struct LifeTabs: View {
             await measurements.connect(cloud.supabase)
             await money.connect(cloud.supabase)
             await smart.connect(cloud.supabase)
+            await admin.connect(cloud.supabase)
             if store.isEnabled(.insights) { await smart.refreshIfNeeded() }
             await smart.scheduleNudge(settings: store.settings, enabled: store.isEnabled(.nudges))
             await Self.scheduleEveryday(store)

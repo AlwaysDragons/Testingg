@@ -328,6 +328,44 @@ export const TOOLS = {
     toRpc: (i) => ({ fn: "ai_search_workouts", args: { p_exercise: i.exercise, p_min_weight_kg: i.min_weight_kg ?? null,
       p_min_reps: i.min_reps ?? null, p_limit: i.limit ?? 10 } }),
   }),
+
+  add_person: tool({
+    description: "Add or update a person (matched by name): birthday (YYYY-MM-DD; use 1900 as the year if unknown), notes, gift ideas (merged), how often to stay in touch. Keeps a yearly birthday reminder.",
+    schema: z.strictObject({
+      name: z.string().trim().min(1).max(80),
+      birthday: z.iso.date().nullable().optional(),
+      notes: z.string().max(2000).optional(),
+      gift_ideas: z.array(z.string().max(120)).max(20).optional(),
+      contact_every_days: z.number().int().min(1).max(365).nullable().optional(),
+    }),
+    toRpc: (i) => ({ fn: "ai_add_person", args: { p: i } }),
+    deviceAction: () => ({ type: "reminder.upsert", reminder: null }),
+  }),
+
+  log_contact: tool({
+    description: "Record that the user was in touch with someone today, with an optional short note.",
+    schema: z.strictObject({ person: z.string().trim().min(1).max(80), note: z.string().max(300).optional() }),
+    toRpc: (i) => ({ fn: "ai_log_contact", args: { p_person: i.person, p_note: i.note ?? null } }),
+  }),
+
+  list_upcoming_birthdays: tool({
+    description: "Birthdays in the next N days (default 30), with the age they turn and gift ideas.",
+    schema: z.strictObject({ days: z.number().int().min(1).max(366).optional() }),
+    toRpc: (i) => ({ fn: "ai_upcoming_birthdays", args: { p_days: i.days ?? 30 } }),
+  }),
+
+  save_document: tool({
+    description: "Save a document note (matched by title): category, where it is (location_note), expiry date. Adds a reminder 30 days before it expires.",
+    schema: z.strictObject({
+      title: z.string().trim().min(1).max(120),
+      category: z.string().max(40).optional(),
+      location_note: z.string().max(300).optional(),
+      expires_at: z.iso.date().nullable().optional(),
+      notes: z.string().max(2000).optional(),
+    }),
+    toRpc: (i) => ({ fn: "ai_save_document", args: { p: i } }),
+    deviceAction: () => ({ type: "reminder.upsert", reminder: null }),
+  }),
 } satisfies Record<string, ToolSpec<any>>;
 
 export type ToolName = keyof typeof TOOLS;

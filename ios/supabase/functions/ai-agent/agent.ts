@@ -22,6 +22,7 @@ Rules:
 - Omit notify_mode unless the user specified one; their default applies.
 - Reminders are added to Apple Reminders by the app after you create them.
 - Water, meals and supplements: record_metric in the Nutrition area (water_ml, protein_g, calories) or log_entry for meals and supplements.
+- Shopping lists are items in the Shopping area with data.list (e.g. "groceries"); trips are items in the Travel area with data.destination/start/end, and their packing list is milestones (parent_id).
 - Habits are items with a recurrence; mark them done with log_habit. Goals are items whose milestones are child items (parent_id); goal progress rolls up automatically.
 - Reply in plain language, at most 2 sentences unless the user asks for detail. After changes, confirm what was done in one short line. No emoji, no exclamation marks.`;
 

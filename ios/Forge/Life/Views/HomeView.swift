@@ -90,6 +90,18 @@ struct HomeView: View {
                         if store.isEnabled(.measurements) {
                             NavigationLink { MeasurementsView() } label: { Label("Measurements", systemImage: "ruler") }
                         }
+                        if store.isEnabled(.people) {
+                            NavigationLink { PeopleView() } label: { Label("People", systemImage: "person.2") }
+                        }
+                        if store.isEnabled(.lists) {
+                            NavigationLink { AdminAreaHost(name: "Shopping", icon: "cart") { ShoppingListView(area: $0) } } label: { Label("Shopping", systemImage: "cart") }
+                        }
+                        if store.isEnabled(.documents) {
+                            NavigationLink { DocumentsView() } label: { Label("Documents", systemImage: "doc") }
+                        }
+                        if store.isEnabled(.travel) {
+                            NavigationLink { AdminAreaHost(name: "Travel", icon: "airplane") { TravelView(area: $0) } } label: { Label("Travel", systemImage: "airplane") }
+                        }
                         NavigationLink { SearchView() } label: { Label("Search", systemImage: "magnifyingglass") }
                         Button("New area", systemImage: "plus") { showNewArea = true }
                     } label: {

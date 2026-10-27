@@ -43,7 +43,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 12. Health features on existing HealthKit/Hevy code (PRs, recovery, skip-or-push, nutrition, measurements, photos)
 - [x] 13. Money (expenses, budgets, subscriptions, savings goals)
 - [x] 14. Smart AI (insights, nudges, universal search)
-- [ ] 15. Life admin (people, lists, documents, travel)
+- [x] 15. Life admin (people, lists, documents, travel)
 - [ ] 16. Apple Watch companion, StandBy, Focus modes, Face ID area locks
 
 ## Decisions log
@@ -187,7 +187,16 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Search (Home → … → Search): `ai_search_all` across items, logs, reminders, journal, captures, workouts, exercises, people, documents and subscriptions. For questions, the assistant has `search_workouts` ("when did I last deadlift 200?"; it converts lb to kg), `search_all`, `get_insights` and `dismiss_insight`.
   - Verified: 12 SQL checks (no insights without data, sample sizes, dismissed insights stay hidden, exercise search, nudge rules).
 
+- Phase 15 (life admin; each behind its own Feature toggle, opened from Home → …):
+  - People: name, birthday (a yearly reminder the day before at 09:00), "keep in touch every N days" (a reach-out nudge when it's been longer), gift ideas (merged, never duplicated) and notes. Swipe "Talked today" to log contact. Upcoming birthdays show with the age they turn.
+  - Documents: title, category, where it is, expiry (a reminder 30 days before, or today if sooner) and an optional photo in the private `documents` bucket, opened through a 10-minute signed link.
+  - Shopping lists: items in a "Shopping" area grouped by `data.list`; tap to check off, "Clear checked", and share the list as text. Real multi-person sharing would need another account, so `data.shared` only marks it.
+  - Travel: trips in a "Travel" area (destination and dates); the packing list is milestones. Save a packing list as reusable (stored in the area config) and add it to any trip without duplicates.
+  - Migration 11: `people.contact_every_days` / `reminder_id`, `documents.reminder_id`, `ai_add_person`, `ai_log_contact`, `ai_upcoming_birthdays`, `ai_save_document`, delete functions that also remove the reminder, and nudges extended with reach-outs. Agent tools: `add_person`, `log_contact`, `list_upcoming_birthdays`, `save_document`.
+  - Verified: 16 SQL checks (leap-year birthdays, reminder timing, upserts, foreign file paths rejected, cleanup on delete); the earlier suites still pass.
+
 ## Manual steps I still need to do
+- Phase 15: run `migrations/20261027000011_life_admin.sql`, redeploy `ai-agent`.
 - Phase 14: run `migrations/20261027000010_insights_search.sql`, redeploy `ai-agent`.
 - Phase 13: run `migrations/20261027000009_money.sql`, redeploy `ai-agent`. Optional: set budgets in the Money area's config (ask the assistant, or edit in Supabase).
 - Phase 12: run `migrations/20261027000008_health.sql`, redeploy `ai-agent`.
