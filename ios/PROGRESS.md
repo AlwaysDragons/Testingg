@@ -27,7 +27,7 @@ Config files that will need additive-only changes (diff shown before applying):
 Stop after each phase and wait for my OK. Branch per phase, commit when done.
 
 - [x] 0. Inspect codebase, summarize Hevy + HealthKit, list protected files
-- [ ] 1. Supabase schema + RLS (SQL + setup steps)
+- [x] 1. Supabase schema + RLS (SQL + setup steps)
 - [ ] 2. Wrap Hevy and HealthKit as Integration adapters + sync into Supabase
 - [ ] 3. Edge Function + tool calling
 - [ ] 3.5. Design system + component library (tokens, Card, StatView, ProgressRing, SectionHeader, EmptyState, ListRow)
@@ -48,13 +48,27 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 
 ## Decisions log
 - Phase 0: `CLAUDE.md` and `PROGRESS.md` live in `ios/` so they don't affect the unrelated Python project at the repo root.
-- Pending your answers (asked in Phase 0):
-  1. Supabase project exists? Auth via email OTP (Sign in with Apple needs a paid developer account).
-  2. Verification: `xcodebuild`/Previews can't run in the cloud session. Proposed: Linux type-check for non-UI code + an HTML mock for look approval + you run `xtool dev` and paste errors.
-  3. Existing Forge screens break the new design rules. Proposed: keep them untouched, hosted inside the Gym area.
+- Phase 0 questions were not answered; proceeding with these defaults (override any time):
+  1. New Supabase project; sign-in by 6-digit email code (Sign in with Apple needs a paid developer account).
+  2. Verification: Linux type-check for non-UI code, an HTML mock for look approval, and you run `xtool dev` and paste errors (`xcodebuild`/Previews can't run in the cloud session).
+  3. Existing Forge screens stay untouched and will be hosted inside the Gym area.
+- Phase 1 (schema), beyond the spec, all additive:
+  - `user_settings` table (default notify mode, quiet hours, briefing time, timezone, feature toggles). The spec needs these settings server-side but had no table for them. A row is auto-created on sign-up.
+  - `items.parent_id` (goals -> milestones), `items.completed_at` (weekly-review wins).
+  - `logs.data`, `metrics.data` (expense category), `metrics.source` + `metrics.external_id` (unique; integrations upsert on it, e.g. `hrv:2026-10-27`).
+  - `reminders.completed_at` + `reminders.source_modified_at` (needed for "most recent edit wins").
+  - `captures.data` (undo info), `insights.sample_size`. `captures.routed_to` is split into `routed_area_id` + `routed_item_id`.
+  - `workouts` adds `title`, `started_at`, `ended_at`, `hevy_updated_at`; `workout_sets` holds one row per set, upserted on (workout, exercise_index, set_index).
+- Enumerations use text + CHECK (no Postgres enums), so adding a value later is a one-line change.
+- Security: RLS "own rows" on all 18 tables (authenticated role only; anon sees nothing). Composite (id, user_id) foreign keys stop rows from pointing at another user's data. A CHECK blocks secret-looking keys in `integrations.config`.
+- Uniques for dedupe: area name per user (case-insensitive), `workouts (user_id, hevy_id)`, `reminders (user_id, apple_reminder_id)`, `checkins (user_id, date, type)`, `journal_entries (user_id, date)`.
+- Deleting an area deletes its items/logs/metrics but keeps workouts, reminders and subscriptions (their area link becomes null).
+- Realtime enabled on: areas, items, logs, metrics, reminders, ai_messages, captures, checkins, insights.
+- Storage: private `photos` + `documents` buckets; files under `<user_id>/...`; per-user policies; signed URLs only.
+- Verified locally on Postgres 16 with Supabase auth/storage stubs: 13 checks passed (RLS isolation, cross-user FK block, anon blocked, upsert dedupe, CHECKs, updated_at trigger, storage isolation, delete behavior).
 
 ## Manual steps I still need to do
-- (none yet; Phase 1 will add Supabase project creation + running the SQL)
+- Phase 1: follow `supabase/SETUP.md`: create the project, run both SQL files, set the email-code template, and keep the Project URL + anon key ready for Phase 2. After your first sign-in, turn off new sign-ups.
 
 ## Known issues
 - Phase 7 / 16 (widgets, Live Activities, Watch) need app extensions; a free Apple ID limits App IDs and xtool extension support may be partial. These may require a paid developer account.

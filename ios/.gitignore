@@ -9,3 +9,7 @@ Packages/
 *.ipa
 Support/Xcode-Info.plist
 Support/Xcode.entitlements
+supabase/.temp/
+supabase/.env
+.env
+Support/Secrets.plist
