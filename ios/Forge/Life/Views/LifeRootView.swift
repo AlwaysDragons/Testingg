@@ -17,6 +17,7 @@ struct LifeRootView: View {
     @State private var celebrations = Celebrations()
     @State private var measurements = MeasurementStore()
     @State private var money = MoneyStore()
+    @State private var smart = SmartStore()
 
     var body: some View {
         LifeTabs()
@@ -32,6 +33,7 @@ struct LifeRootView: View {
             .environment(celebrations)
             .environment(measurements)
             .environment(money)
+            .environment(smart)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -56,6 +58,7 @@ private struct LifeTabs: View {
     @Environment(Celebrations.self) private var celebrations
     @Environment(MeasurementStore.self) private var measurements
     @Environment(MoneyStore.self) private var money
+    @Environment(SmartStore.self) private var smart
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
@@ -79,6 +82,9 @@ private struct LifeTabs: View {
             await focus.connect(cloud.supabase, store: store)
             await measurements.connect(cloud.supabase)
             await money.connect(cloud.supabase)
+            await smart.connect(cloud.supabase)
+            if store.isEnabled(.insights) { await smart.refreshIfNeeded() }
+            await smart.scheduleNudge(settings: store.settings, enabled: store.isEnabled(.nudges))
             await Self.scheduleEveryday(store)
             await Self.remindersChanged(store, reminderSync)
             await briefing.refreshIfNeeded(cloud.supabase, deviceContext: deviceContext)
@@ -91,7 +97,12 @@ private struct LifeTabs: View {
                     await briefing.refreshIfNeeded(cloud.supabase, deviceContext: deviceContext)
                 }
             }
-            if new == .background { Task { await BriefingService.schedule(settings: store.settings) } }
+            if new == .background {
+                Task {
+                    await BriefingService.schedule(settings: store.settings)
+                    await smart.scheduleNudge(settings: store.settings, enabled: store.isEnabled(.nudges))
+                }
+            }
         }
         .sheet(isPresented: $chat.isPresented) { ChatSheet().environment(chat).environment(store) }
         .sheet(isPresented: $captures.isPresented) { CaptureSheet().environment(captures).environment(store) }

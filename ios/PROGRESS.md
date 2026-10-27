@@ -42,7 +42,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 11. Habits/streaks + focus timer + "What should I do now?" + goals with milestones
 - [x] 12. Health features on existing HealthKit/Hevy code (PRs, recovery, skip-or-push, nutrition, measurements, photos)
 - [x] 13. Money (expenses, budgets, subscriptions, savings goals)
-- [ ] 14. Smart AI (insights, nudges, universal search)
+- [x] 14. Smart AI (insights, nudges, universal search)
 - [ ] 15. Life admin (people, lists, documents, travel)
 - [ ] 16. Apple Watch companion, StandBy, Focus modes, Face ID area locks
 
@@ -181,7 +181,14 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - UI in the Money area: spent this month vs budget, budget rings per category (red when over), add expense, subscriptions with the monthly total (swipe to delete), savings goals with progress bars (tap to add or withdraw). Home → … → Money opens it.
   - Migration 9 adds `subscriptions.reminder_id` and `notes`. Verified: 18 SQL checks.
 
+- Phase 14 (smart AI):
+  - Insights (Features → Insights) are computed in SQL (`ai_compute_insights`, migration 10), never by the model. Current findings: sleep before workout days vs other days (needs 7+ days in each group and a difference of at least 0.3 h), mood on workout vs rest days (5+ each, difference of at least 0.5), and 4-week trends for bodyweight, sleep and resting HR. Each insight stores its sample size. They're recomputed once a day and shown on Today ("Based on N data points"); swipe to dismiss, and dismissed ones don't return.
+  - Nudges (Features → Nudges): `ai_nudges` rules (no weight logged in 5+ days, no workout in 5+ days if you usually train, a habit missed 3+ days, 3+ overdue items). At most one notification a day at 18:00, moved out of quiet hours, rotating the kind so they don't repeat. Only when notifications are on.
+  - Search (Home → … → Search): `ai_search_all` across items, logs, reminders, journal, captures, workouts, exercises, people, documents and subscriptions. For questions, the assistant has `search_workouts` ("when did I last deadlift 200?"; it converts lb to kg), `search_all`, `get_insights` and `dismiss_insight`.
+  - Verified: 12 SQL checks (no insights without data, sample sizes, dismissed insights stay hidden, exercise search, nudge rules).
+
 ## Manual steps I still need to do
+- Phase 14: run `migrations/20261027000010_insights_search.sql`, redeploy `ai-agent`.
 - Phase 13: run `migrations/20261027000009_money.sql`, redeploy `ai-agent`. Optional: set budgets in the Money area's config (ask the assistant, or edit in Supabase).
 - Phase 12: run `migrations/20261027000008_health.sql`, redeploy `ai-agent`.
 - Phase 11: run `migrations/20261027000007_habits_focus_goals.sql`, redeploy `ai-agent`.

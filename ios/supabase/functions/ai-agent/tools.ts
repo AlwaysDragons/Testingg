@@ -298,6 +298,36 @@ export const TOOLS = {
     schema: z.strictObject({}),
     toRpc: () => ({ fn: "ai_list_subscriptions", args: {} }),
   }),
+
+  get_insights: tool({
+    description: "Cross-area findings computed from the user's data (each with its sample size). Quote them as given; never invent correlations.",
+    schema: z.strictObject({ refresh: z.boolean().optional().describe("Recompute first") }),
+    toRpc: (i) => ({ fn: i.refresh ? "ai_compute_insights_then_get" : "ai_get_insights", args: {} }),
+  }),
+
+  dismiss_insight: tool({
+    description: "Hide an insight so it doesn't come back.",
+    schema: z.strictObject({ id: uuid }),
+    toRpc: (i) => ({ fn: "ai_dismiss_insight", args: { p_id: i.id } }),
+  }),
+
+  search_all: tool({
+    description: "Search everything stored (items, logs, reminders, journal, captures, workouts, exercises, people, documents, subscriptions).",
+    schema: z.strictObject({ query: z.string().trim().min(2).max(100), limit: z.number().int().min(1).max(100).optional() }),
+    toRpc: (i) => ({ fn: "ai_search_all", args: { p_query: i.query, p_limit: i.limit ?? 30 } }),
+  }),
+
+  search_workouts: tool({
+    description: "Find sets of an exercise, newest first, optionally at least a weight (kg) or reps. E.g. \"when did I last deadlift 200?\" (convert lb to kg).",
+    schema: z.strictObject({
+      exercise: z.string().trim().min(2).max(80),
+      min_weight_kg: z.number().positive().optional(),
+      min_reps: z.number().int().positive().optional(),
+      limit: z.number().int().min(1).max(50).optional(),
+    }),
+    toRpc: (i) => ({ fn: "ai_search_workouts", args: { p_exercise: i.exercise, p_min_weight_kg: i.min_weight_kg ?? null,
+      p_min_reps: i.min_reps ?? null, p_limit: i.limit ?? 10 } }),
+  }),
 } satisfies Record<string, ToolSpec<any>>;
 
 export type ToolName = keyof typeof TOOLS;

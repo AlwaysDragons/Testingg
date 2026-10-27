@@ -90,6 +90,7 @@ struct HomeView: View {
                         if store.isEnabled(.measurements) {
                             NavigationLink { MeasurementsView() } label: { Label("Measurements", systemImage: "ruler") }
                         }
+                        NavigationLink { SearchView() } label: { Label("Search", systemImage: "magnifyingglass") }
                         Button("New area", systemImage: "plus") { showNewArea = true }
                     } label: {
                         Image(systemName: "ellipsis").fontWeight(DS.symbolWeight)

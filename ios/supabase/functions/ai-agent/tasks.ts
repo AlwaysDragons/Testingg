@@ -7,7 +7,7 @@ import { TOOL_DEFINITIONS, type ToolName } from "./tools.ts";
 
 export const READ_ONLY_TOOLS: ToolName[] = [
   "query_area", "get_dashboard_summary", "get_daily_briefing", "list_reminders", "get_weekly_review", "get_day_digest", "get_streaks",
-  "get_budget_status", "list_subscriptions",
+  "get_budget_status", "list_subscriptions", "get_insights", "search_all", "search_workouts",
 ];
 
 // deno-lint-ignore no-explicit-any

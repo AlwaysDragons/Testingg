@@ -17,6 +17,7 @@ struct TodayView: View {
         NavigationStack {
             List {
                 everydaySection
+                if store.isEnabled(.insights) { InsightsSection() }
                 if useTimeline {
                     let entries = Timeline.build(events: calendar.today, items: store.items, reminders: store.reminders)
                     Section {
