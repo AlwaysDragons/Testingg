@@ -253,6 +253,51 @@ export const TOOLS = {
     }),
     toRpc: (i) => ({ fn: "ai_log_measurement", args: { p_type: i.type, p_value: i.value, p_unit: i.unit, p_recorded_at: i.recorded_at ?? null } }),
   }),
+
+  log_expense: tool({
+    description: "Log money spent (\"spent 12 on lunch\"). Pick a short lowercase category (food, groceries, transport, fun, home, health, bills, other); ask if unclear. Never guess the amount.",
+    schema: z.strictObject({
+      amount: z.number().positive().finite(),
+      category: z.string().trim().min(1).max(40),
+      note: z.string().max(200).optional(),
+      spent_at: dateTime.optional(),
+      currency: z.string().length(3).optional().describe("Omit to use the finance area's currency"),
+    }),
+    toRpc: (i) => ({ fn: "ai_log_expense", args: { p_amount: i.amount, p_category: i.category, p_note: i.note ?? null,
+      p_spent_at: i.spent_at ?? null, p_currency: i.currency ?? null } }),
+  }),
+
+  get_budget_status: tool({
+    description: "Spending for a month (default this month): total, per category vs budget, days left, subscriptions per month.",
+    schema: z.strictObject({ month: z.iso.date().optional().describe("Any date in the month, YYYY-MM-DD") }),
+    toRpc: (i) => ({ fn: "ai_budget_status", args: { p_month: i.month ?? null } }),
+  }),
+
+  upsert_subscription: tool({
+    description: "Add or update a subscription (matched by name). Keeps a renewal reminder 2 days before it renews.",
+    schema: z.strictObject({
+      name: z.string().trim().min(1).max(80),
+      amount: z.number().nonnegative().finite().optional(),
+      currency: z.string().length(3).optional(),
+      billing_cycle: z.enum(["weekly", "monthly", "quarterly", "yearly"]).optional(),
+      renews_on: z.iso.date().optional(),
+      notes: z.string().max(500).optional(),
+    }),
+    toRpc: (i) => ({ fn: "ai_upsert_subscription", args: { p: i } }),
+    deviceAction: () => ({ type: "reminder.upsert", reminder: null }),
+  }),
+
+  delete_subscription: tool({
+    description: "Delete a subscription and its renewal reminder. Only when the user clearly asks.",
+    schema: z.strictObject({ id: uuid }),
+    toRpc: (i) => ({ fn: "ai_delete_subscription", args: { p_id: i.id } }),
+  }),
+
+  list_subscriptions: tool({
+    description: "All subscriptions with amount, cycle and next renewal.",
+    schema: z.strictObject({}),
+    toRpc: () => ({ fn: "ai_list_subscriptions", args: {} }),
+  }),
 } satisfies Record<string, ToolSpec<any>>;
 
 export type ToolName = keyof typeof TOOLS;

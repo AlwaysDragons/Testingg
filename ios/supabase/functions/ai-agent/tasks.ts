@@ -7,6 +7,7 @@ import { TOOL_DEFINITIONS, type ToolName } from "./tools.ts";
 
 export const READ_ONLY_TOOLS: ToolName[] = [
   "query_area", "get_dashboard_summary", "get_daily_briefing", "list_reminders", "get_weekly_review", "get_day_digest", "get_streaks",
+  "get_budget_status", "list_subscriptions",
 ];
 
 // deno-lint-ignore no-explicit-any
@@ -73,11 +74,11 @@ export const TASKS: Record<string, Task> = {
   },
 };
 
-const WRITE_TOOLS: ToolName[] = ["create_area", "upsert_item", "log_entry", "record_metric", "create_reminder"];
+const WRITE_TOOLS: ToolName[] = ["create_area", "upsert_item", "log_entry", "record_metric", "create_reminder", "log_expense"];
 
 TASKS.capture = {
   instructions: `Task: sort one quick capture into the right place, then call finish_capture.
-- Decide what it is: a task (upsert_item), a reminder (create_reminder; only if it has a time, otherwise make it a task with a due date if one is given), an expense (record_metric name "expense" with the amount, in the finance area), a number to track (record_metric), or a note (log_entry).
+- Decide what it is: a task (upsert_item), a reminder (create_reminder; only if it has a time, otherwise make it a task with a due date if one is given), an expense (log_expense with the amount and a category), a number to track (record_metric), or a note (log_entry).
 - Use an existing area when one fits (check get_dashboard_summary). Only create an area if nothing fits and the capture clearly starts something new.
 - Never invent amounts, dates or times. If it's too unclear to sort, call finish_capture with kind "unsorted".
 - summary: at most 8 words, e.g. "Task in Home: buy milk".`,

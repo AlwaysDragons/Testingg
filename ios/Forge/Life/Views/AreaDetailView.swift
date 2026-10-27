@@ -88,8 +88,9 @@ struct AreaDetailView: View {
     private var overview: some View {
         HabitsSection(area: current)
         if current.config["targets"] != nil { NutritionSection(area: current) }
+        if current.kind == "finance" { MoneySection(area: current) }
         if current.kind == "gym" { gymOverview }
-        let upcoming = store.items(in: current).filter { !$0.isDone && !$0.isHabit }.prefix(3)
+        let upcoming = store.items(in: current).filter { !$0.isDone && !$0.isHabit && !Savings.isGoal($0) }.prefix(3)
         if !upcoming.isEmpty {
             Section {
                 ForEach(Array(upcoming)) { item in itemRow(item) }

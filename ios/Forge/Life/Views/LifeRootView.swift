@@ -16,6 +16,7 @@ struct LifeRootView: View {
     @State private var focus = FocusStore()
     @State private var celebrations = Celebrations()
     @State private var measurements = MeasurementStore()
+    @State private var money = MoneyStore()
 
     var body: some View {
         LifeTabs()
@@ -30,6 +31,7 @@ struct LifeRootView: View {
             .environment(focus)
             .environment(celebrations)
             .environment(measurements)
+            .environment(money)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -53,6 +55,7 @@ private struct LifeTabs: View {
     @Environment(FocusStore.self) private var focus
     @Environment(Celebrations.self) private var celebrations
     @Environment(MeasurementStore.self) private var measurements
+    @Environment(MoneyStore.self) private var money
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
@@ -75,6 +78,7 @@ private struct LifeTabs: View {
             await habits.connect(cloud.supabase)
             await focus.connect(cloud.supabase, store: store)
             await measurements.connect(cloud.supabase)
+            await money.connect(cloud.supabase)
             await Self.scheduleEveryday(store)
             await Self.remindersChanged(store, reminderSync)
             await briefing.refreshIfNeeded(cloud.supabase, deviceContext: deviceContext)
@@ -119,7 +123,7 @@ private struct LifeTabs: View {
         }
         .onAppear {
             if IntentEvents.pendingCapture { IntentEvents.pendingCapture = false; captures.open() }
-            let store = store, reminderSync = reminderSync, chat = chat, model = model, briefing = briefing, everyday = everyday, habits = habits, focus = focus
+            let store = store, reminderSync = reminderSync, chat = chat, model = model, briefing = briefing, everyday = everyday, habits = habits, focus = focus, money = money
             NotificationScheduler.shared.tapHandlers = [
                 "checkin.": { _ in everyday.showCheckin = true },
                 "review.": { _ in everyday.showReview = true },
@@ -149,6 +153,7 @@ private struct LifeTabs: View {
                 }
                 if tables.contains("checkins") || tables.contains("journal_entries") { Task { await everyday.reload() } }
                 if tables.contains("logs") || tables.contains("items") { Task { await habits.reload() } }
+                if tables.contains("metrics") || tables.contains("areas") { Task { await money.reload() } }
             }]
         }
     }

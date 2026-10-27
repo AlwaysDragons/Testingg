@@ -41,7 +41,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 10. Calendar integration + unified Today timeline
 - [x] 11. Habits/streaks + focus timer + "What should I do now?" + goals with milestones
 - [x] 12. Health features on existing HealthKit/Hevy code (PRs, recovery, skip-or-push, nutrition, measurements, photos)
-- [ ] 13. Money (expenses, budgets, subscriptions, savings goals)
+- [x] 13. Money (expenses, budgets, subscriptions, savings goals)
 - [ ] 14. Smart AI (insights, nudges, universal search)
 - [ ] 15. Life admin (people, lists, documents, travel)
 - [ ] 16. Apple Watch companion, StandBy, Focus modes, Face ID area locks
@@ -172,7 +172,17 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Measurements (Features → Body measurements and photos): log waist, chest, arm, body fat and so on, with trend lines and an optional progress photo. Photos go to the private `photos` bucket (signed URLs only, about 1 hour) or stay on the device (complete file protection) if you choose.
   - Migration 8: `ai_log_measurement` (rejects photo paths outside your own folder). Agent tool `log_measurement`. `SupabaseClient` gained Storage upload, signed URL and delete.
 
+- Phase 13 (money, behind Features → Money):
+  - Expenses are `metrics` named `expense` with `data.category` in the finance area ("Money", created on first use). Budgets and currency live in that area's config: `{"currency": "EUR", "monthly_budget": 2000, "budgets": {"food": 400}}`.
+  - Chat logging: "spent 12 on lunch" → `log_expense` (the assistant picks a category and asks if it's unclear; it never guesses an amount). Quick capture routes expenses the same way.
+  - `ai_budget_status`: spent this month, per category vs budget (budgeted categories with no spending included), days left, subscriptions per month. Agent tools: `get_budget_status`, `upsert_subscription` (matched by name), `delete_subscription`, `list_subscriptions`.
+  - Subscriptions: each keeps one renewal reminder 2 days before at 09:00, through the normal reminders system (so notify mode and Apple Reminders sync apply). Past renewals roll forward on launch (`ai_roll_subscriptions`).
+  - Savings goals: items in the finance area with `data.target_amount` / `saved_amount`; progress follows, and the goal completes at 100%.
+  - UI in the Money area: spent this month vs budget, budget rings per category (red when over), add expense, subscriptions with the monthly total (swipe to delete), savings goals with progress bars (tap to add or withdraw). Home → … → Money opens it.
+  - Migration 9 adds `subscriptions.reminder_id` and `notes`. Verified: 18 SQL checks.
+
 ## Manual steps I still need to do
+- Phase 13: run `migrations/20261027000009_money.sql`, redeploy `ai-agent`. Optional: set budgets in the Money area's config (ask the assistant, or edit in Supabase).
 - Phase 12: run `migrations/20261027000008_health.sql`, redeploy `ai-agent`.
 - Phase 11: run `migrations/20261027000007_habits_focus_goals.sql`, redeploy `ai-agent`.
 - Phase 10: redeploy `ai-agent` (plan_day task); turn on Features → Calendar and connect it in Settings → Calendar.

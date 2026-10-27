@@ -9,6 +9,7 @@ struct HomeView: View {
     @Environment(CaptureStore.self) private var captures
     @Environment(Celebrations.self) private var celebrations
     @State private var nutritionArea: Area?
+    @State private var path: [UUID] = []
     @State private var showNewArea = false
     @State private var showCloud = false
     @State private var briefingExpanded = false
@@ -16,7 +17,7 @@ struct HomeView: View {
     private let columns = [GridItem(.flexible(), spacing: DS.Space.m), GridItem(.flexible(), spacing: DS.Space.m)]
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ScrollView {
                 VStack(alignment: .leading, spacing: DS.Space.l) {
                     header
@@ -80,6 +81,11 @@ struct HomeView: View {
                         }
                         if store.isEnabled(.nutrition) {
                             Button("Log nutrition", systemImage: "drop") { Task { nutritionArea = await store.nutritionArea() } }
+                        }
+                        if store.isEnabled(.money) {
+                            Button("Money", systemImage: "creditcard") {
+                                Task { if let a = await store.financeArea() { path.append(a.id) } }
+                            }
                         }
                         if store.isEnabled(.measurements) {
                             NavigationLink { MeasurementsView() } label: { Label("Measurements", systemImage: "ruler") }
