@@ -8,6 +8,7 @@ struct HomeView: View {
     @Environment(BriefingService.self) private var briefing
     @Environment(CaptureStore.self) private var captures
     @Environment(Celebrations.self) private var celebrations
+    @Environment(AreaLock.self) private var areaLock
     @State private var nutritionArea: Area?
     @State private var path: [UUID] = []
     @State private var showNewArea = false
@@ -137,6 +138,7 @@ struct HomeView: View {
     }
 
     private func hero(for area: Area) -> Summaries.Hero {
+        if !areaLock.isOpen(area) { return Summaries.Hero(value: "–", label: "locked") }
         let gym = area.kind == "gym" ? (model.analysis.workoutsThisWeek, max(1, model.trainingDays.count)) : nil
         return Summaries.hero(store.data(for: area, gym: gym, readiness: area.kind == "gym" ? model.readiness?.score : nil))
     }

@@ -19,6 +19,7 @@ struct LifeRootView: View {
     @State private var money = MoneyStore()
     @State private var smart = SmartStore()
     @State private var admin = AdminStore()
+    @State private var areaLock = AreaLock()
 
     var body: some View {
         LifeTabs()
@@ -36,6 +37,7 @@ struct LifeRootView: View {
             .environment(money)
             .environment(smart)
             .environment(admin)
+            .environment(areaLock)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -62,6 +64,7 @@ private struct LifeTabs: View {
     @Environment(MoneyStore.self) private var money
     @Environment(SmartStore.self) private var smart
     @Environment(AdminStore.self) private var admin
+    @Environment(AreaLock.self) private var areaLock
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
@@ -102,6 +105,7 @@ private struct LifeTabs: View {
                 }
             }
             if new == .background {
+                areaLock.lockAll()
                 Task {
                     await BriefingService.schedule(settings: store.settings)
                     await smart.scheduleNudge(settings: store.settings, enabled: store.isEnabled(.nudges))
@@ -133,6 +137,7 @@ private struct LifeTabs: View {
             celebrations.check(model)
             Task { await Self.pushReadiness(model, store, cloud.supabase) }
         }
+        .onReceive(NotificationCenter.default.publisher(for: FocusAreas.changed)) { _ in store.focusVisible = FocusAreas.visible() }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name(IntentEvents.Event.dashboardChanged.rawValue))) { _ in
             Task { await store.reloadAll() }
         }
@@ -145,8 +150,14 @@ private struct LifeTabs: View {
                 "focus.": { _ in focus.showSheet = true },
             ]
             // Widgets read a snapshot the app writes after every reload.
-            store.onReloaded = [{ WidgetBridge.update(store: store, model: model, briefing: briefing.today?.text) }]
+            store.focusVisible = FocusAreas.visible()
+            store.onReloaded = [{
+                WidgetBridge.update(store: store, model: model, briefing: briefing.today?.text)
+                FocusAreas.saveCatalog(store.areas)
+                WatchBridge.shared.send(WidgetSnapshot.load())
+            }]
             NotificationScheduler.shared.install()
+            WatchBridge.shared.activate()
             NotificationScheduler.shared.store = store
             reminderSync.store = store
             // The agent's changes arrive by realtime; also refresh right after a reply and push

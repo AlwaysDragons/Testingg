@@ -106,8 +106,13 @@ final class LifeStore {
 
     // MARK: Derived
 
+    /// Area ids the current Focus filter allows on Home (nil = all). Set by the app from `FocusAreas`.
+    var focusVisible: Set<String>?
+
     var visibleAreas: [Area] { areas.filter { !$0.hidden } }
-    var homeAreas: [Area] { visibleAreas.filter(\.pinned) }
+    var homeAreas: [Area] {
+        visibleAreas.filter { $0.pinned && (focusVisible == nil || focusVisible!.contains($0.id.uuidString)) }
+    }
 
     func area(_ id: UUID?) -> Area? { id.flatMap { id in areas.first { $0.id == id } } }
     func area(named name: String) -> Area? { areas.first { $0.name.caseInsensitiveCompare(name) == .orderedSame } }

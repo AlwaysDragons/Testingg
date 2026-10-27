@@ -44,7 +44,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 13. Money (expenses, budgets, subscriptions, savings goals)
 - [x] 14. Smart AI (insights, nudges, universal search)
 - [x] 15. Life admin (people, lists, documents, travel)
-- [ ] 16. Apple Watch companion, StandBy, Focus modes, Face ID area locks
+- [x] 16. Apple Watch companion, StandBy, Focus modes, Face ID area locks
 
 ## Decisions log
 - Phase 0: `CLAUDE.md` and `PROGRESS.md` live in `ios/` so they don't affect the unrelated Python project at the repo root.
@@ -195,7 +195,19 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Migration 11: `people.contact_every_days` / `reminder_id`, `documents.reminder_id`, `ai_add_person`, `ai_log_contact`, `ai_upcoming_birthdays`, `ai_save_document`, delete functions that also remove the reminder, and nudges extended with reach-outs. Agent tools: `add_person`, `log_contact`, `list_upcoming_birthdays`, `save_document`.
   - Verified: 16 SQL checks (leap-year birthdays, reminder timing, upserts, foreign file paths rejected, cleanup on delete); the earlier suites still pass.
 
+- Phase 16 (Watch, StandBy, Focus, Face ID):
+  - Apple Watch companion (`ForgeWatch/`, Xcode route; embedded in the app target in `project.yml`): today's line and counts, habit taps, quick capture (dictation or typing) and check-in. The watch has no Supabase session; it sends actions to the iPhone over WatchConnectivity (`WatchBridge`), and the phone runs them and sends the latest snapshot back. The iPhone app must be reachable (running or woken).
+  - StandBy: the small Today and Habits widgets already work in StandBy (they use `containerBackground`). No extra code was needed.
+  - Focus modes: `ForgeFocusFilter` (a SetFocusFilterIntent, main app, so xtool too). In Settings → Focus → (Work / Gym / Personal) → Add Filter → Forge, pick the areas Home shows during that Focus. The area list for the picker is cached on each reload.
+  - Face ID lock per area: area editor → "Require Face ID" (`areas.config.locked`). Locked areas show "–" on Home and ask for Face ID (or the passcode) before opening; they lock again when the app goes to the background. Info.plist: `NSFaceIDUsageDescription`.
+
+## Summary of the overnight run (phases 3.5-16)
+- Each phase is its own branch, stacked in order: `phase-3-5-design-system` → `phase-4-home` → `phase-5-chat` → `phase-5-5-reminders` → `phase-6-briefing` → `phase-7-widgets-intents` → `phase-8-capture` → `phase-9-checkins-review-journal` → `phase-10-calendar` → `phase-11-habits-focus-goals` → `phase-12-health` → `phase-13-money` → `phase-14-smart-ai` → `phase-15-life-admin` → `phase-16-watch-focus-faceid`. The last branch contains everything; roll back by checking out an earlier one.
+- Every phase's iOS code was compiled by the macOS CI (Swift package + generated Xcode project with widgets). Non-UI logic has unit tests run on Linux, the SQL was tested on Postgres 16 with RLS, and the Edge Function was type-checked and unit-tested with Deno.
+- Not verified: anything on a real device (the HealthKit / EventKit / notification / Live Activity / Watch behaviour, the actual look), and live Claude calls. Your first `xtool dev` run and a quick tap-through are the real test.
+
 ## Manual steps I still need to do
+- Phase 16 (Xcode route): set your team on the Forge, ForgeWidgets and ForgeWatch targets; change `com.yourname.*` bundle ids and the App Group to yours.
 - Phase 15: run `migrations/20261027000011_life_admin.sql`, redeploy `ai-agent`.
 - Phase 14: run `migrations/20261027000010_insights_search.sql`, redeploy `ai-agent`.
 - Phase 13: run `migrations/20261027000009_money.sql`, redeploy `ai-agent`. Optional: set budgets in the Money area's config (ask the assistant, or edit in Supabase).

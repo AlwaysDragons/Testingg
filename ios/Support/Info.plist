@@ -40,6 +40,8 @@
 			</array>
 		</dict>
 	</array>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Forge uses Face ID to open areas you've locked.</string>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSCalendarsFullAccessUsageDescription</key>

@@ -7,6 +7,7 @@ struct AreaDetailView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     @Environment(ChatStore.self) private var chat
+    @Environment(AreaLock.self) private var areaLock
     let area: Area
 
     enum Tab: String, CaseIterable, Identifiable { case overview = "Overview", items = "Items", logs = "Logs", charts = "Charts"; var id: String { rawValue } }
@@ -25,6 +26,19 @@ struct AreaDetailView: View {
     private var accent: Color { DS.Palette.area(hex: current.color, kind: current.kind) }
 
     var body: some View {
+        if areaLock.isOpen(current) {
+            content
+        } else {
+            EmptyState(symbol: "lock", title: "\(current.name) is locked", actionTitle: "Unlock") { Task { _ = await areaLock.unlock(current) } }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .dsScreen()
+                .navigationTitle(current.name)
+                .navigationBarTitleDisplayMode(.inline)
+                .task { _ = await areaLock.unlock(current) }
+        }
+    }
+
+    private var content: some View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: DS.Space.m) {

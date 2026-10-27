@@ -15,3 +15,4 @@ supabase/.env
 Support/Secrets.plist
 ForgeWidgets/Info.plist
 ForgeWidgets/ForgeWidgets.entitlements
+ForgeWatch/Info.plist

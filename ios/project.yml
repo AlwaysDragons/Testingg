@@ -39,6 +39,7 @@ targets:
         BGTaskSchedulerPermittedIdentifiers: [com.forge.briefing]
         UIBackgroundModes: [fetch]
         NSSupportsLiveActivities: true
+        NSFaceIDUsageDescription: Forge uses Face ID to open areas you've locked.
         NSSpeechRecognitionUsageDescription: Forge turns what you say into a quick capture.
         NSMicrophoneUsageDescription: Forge listens only while you dictate a capture.
         CFBundleURLTypes:
@@ -48,6 +49,7 @@ targets:
         NSRemindersFullAccessUsageDescription: Forge syncs the Reminders lists you choose with your dashboard, both ways.
     dependencies:
       - target: ForgeWidgets
+      - target: ForgeWatch
     entitlements:
       path: Support/Xcode.entitlements
       properties:
@@ -79,3 +81,23 @@ targets:
       path: ForgeWidgets/ForgeWidgets.entitlements
       properties:
         com.apple.security.application-groups: [group.com.raoulreinder.forge]
+  # Apple Watch companion (Phase 16). Xcode route only. Talks to the iPhone app over WatchConnectivity.
+  ForgeWatch:
+    type: application
+    platform: watchOS
+    deploymentTarget: "10.0"
+    sources:
+      - ForgeWatch
+      - path: Forge/Shared/WidgetShared.swift
+      - Forge/Design/HexColor.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yourname.forge.watchkitapp
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: WATCH
+    info:
+      path: ForgeWatch/Info.plist
+      properties:
+        CFBundleDisplayName: Forge
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: com.yourname.forge

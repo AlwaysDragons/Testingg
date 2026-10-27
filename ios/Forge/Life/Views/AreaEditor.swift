@@ -12,6 +12,7 @@ struct AreaEditor: View {
     @State private var color = AreaPalette.fallback
     @State private var heroMetric = ""
     @State private var pinned = true
+    @State private var locked = false
     @State private var saving = false
 
     private let kinds: [(String, String)] = [("custom", "Custom"), ("tasks", "Tasks"), ("goals", "Goals"), ("habits", "Habits"),
@@ -29,6 +30,7 @@ struct AreaEditor: View {
                         ForEach(kinds, id: \.0) { Text($0.1).tag($0.0) }
                     }
                     Toggle("Show on Home", isOn: $pinned)
+                    Toggle("Require Face ID", isOn: $locked)
                 }
                 .listRowBackground(DS.Palette.surface)
                 Section("Icon") {
@@ -100,6 +102,7 @@ struct AreaEditor: View {
         color = a.accentHex
         heroMetric = a.config["hero_metric"]?.string ?? ""
         pinned = a.pinned
+        locked = AreaLock.isLocked(a)
     }
 
     private func save() async {
@@ -107,12 +110,15 @@ struct AreaEditor: View {
         defer { saving = false }
         let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
         if let a = area {
-            let config = heroMetric.isEmpty ? JSONValue.object(a.config.object.filter { $0.key != "hero_metric" }) : a.config.setting("hero_metric", .string(heroMetric))
+            let base = heroMetric.isEmpty ? JSONValue.object(a.config.object.filter { $0.key != "hero_metric" }) : a.config.setting("hero_metric", .string(heroMetric))
+            let config = base.setting("locked", .bool(locked))
             await store.updateArea(a, ["name": .string(n), "kind": .string(kind), "icon": .string(currentIcon), "color": .string(color),
                                        "pinned": .bool(pinned), "config": config])
         } else {
             let created = await store.createArea(name: n, kind: kind, icon: currentIcon, color: color)
-            if let created, !pinned { await store.updateArea(created, ["pinned": .bool(false)]) }
+            if let created, !pinned || locked {
+                await store.updateArea(created, ["pinned": .bool(pinned), "config": created.config.setting("locked", .bool(locked))])
+            }
         }
         if store.lastError == nil { dismiss() }
     }
