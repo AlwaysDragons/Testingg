@@ -30,5 +30,6 @@ struct RootView: View {
         .onChange(of: phase) { _, new in
             if new == .active, model.hasHevy { Task { await model.refreshAll() } }
         }
+        .cloudSync()
     }
 }

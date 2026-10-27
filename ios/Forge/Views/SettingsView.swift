@@ -93,6 +93,10 @@ struct SettingsView: View {
                 } header: { Text("OneLife amenities at my club") }
 
                 Section {
+                    NavigationLink("Cloud sync") { CloudSettingsView() }
+                } header: { Text("Cloud") }
+
+                Section {
                     Toggle("Use pounds (lb)", isOn: $model.useLbs)
                     Button("Load sample data") { model.loadDemo() }
                     Button("Clear all data", role: .destructive) { confirmClear = true }

@@ -28,7 +28,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 
 - [x] 0. Inspect codebase, summarize Hevy + HealthKit, list protected files
 - [x] 1. Supabase schema + RLS (SQL + setup steps)
-- [~] 2. Wrap Hevy and HealthKit as Integration adapters + sync into Supabase (code done; waiting on approval of 2 hook edits in protected files)
+- [x] 2. Wrap Hevy and HealthKit as Integration adapters + sync into Supabase
 - [ ] 3. Edge Function + tool calling
 - [ ] 3.5. Design system + component library (tokens, Card, StatView, ProgressRing, SectionHeader, EmptyState, ListRow)
 - [ ] 4. SwiftUI Home + Area detail + realtime
@@ -74,13 +74,14 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Incremental sync: the cursor is stored in `integrations.config.cursor`. Hevy pushes workouts edited after the cursor (sets are replaced per workout). HealthKit re-pushes the last 3 days each time, because today's totals keep changing.
   - Metric names: steps, active_energy, resting_hr, hrv, sleep_hours, bodyweight (kg), body_fat (%), vo2_max, protein, calories_in. external_id is `<name>:<yyyy-MM-dd>`.
   - Sample/demo data is never uploaded.
+  - Approved protected-file edits (additive): `ForgeApp.swift` +1 line (`.cloudSync()` on RootView); `SettingsView.swift` +3 lines ("Cloud sync" section).
   - Supabase URL, anon key and session are stored in the Keychain (via the existing helper). The app refuses service_role / `sb_secret_` keys.
   - Migration 3 swaps the partial unique indexes for plain unique constraints, because PostgREST `on_conflict` can't target partial indexes. Behavior is the same, since NULLs don't conflict.
   - Verified: type-check of all non-UI code; the adapters' exact JSON was upserted into Postgres twice with identical counts (10 workouts / 190 sets / 346 metrics), so there are no duplicates; the secret-key guard was tested.
 
 ## Manual steps I still need to do
 - Phase 2: in the Supabase SQL Editor, run `supabase/migrations/20261027000003_upsert_constraints.sql`.
-- Phase 2 (after the hook edits are approved and the app is rebuilt with `xtool dev`): Settings → Cloud sync → paste Project URL + anon key → enter email → enter the 6-digit code. Then turn off new sign-ups in Supabase.
+- Phase 2 (after rebuilding with `xtool dev`): Settings → Cloud sync → paste Project URL + anon key → enter email → enter the 6-digit code. Then turn off new sign-ups in Supabase.
 - Phase 1: follow `supabase/SETUP.md`: create the project, run both SQL files, set the email-code template, and keep the Project URL + anon key ready for Phase 2. After your first sign-in, turn off new sign-ups.
 
 ## Known issues
