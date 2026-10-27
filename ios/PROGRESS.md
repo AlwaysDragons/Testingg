@@ -40,7 +40,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 9. Check-ins + weekly review + daily journal
 - [x] 10. Calendar integration + unified Today timeline
 - [x] 11. Habits/streaks + focus timer + "What should I do now?" + goals with milestones
-- [ ] 12. Health features on existing HealthKit/Hevy code (PRs, recovery, skip-or-push, nutrition, measurements, photos)
+- [x] 12. Health features on existing HealthKit/Hevy code (PRs, recovery, skip-or-push, nutrition, measurements, photos)
 - [ ] 13. Money (expenses, budgets, subscriptions, savings goals)
 - [ ] 14. Smart AI (insights, nudges, universal search)
 - [ ] 15. Life admin (people, lists, documents, travel)
@@ -164,7 +164,16 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Agent tools: `log_habit`, `get_streaks`, `start_focus_session`, `end_focus_session`. Goals = items with milestones (parent_id), already editable in item detail.
   - Verified: 16 SQL checks (streaks with and without grace, idempotent logging, focus minutes and totals, one open session, goal roll-up on complete and delete); the earlier SQL suites still pass.
 
+- Phase 12 (health, built on the existing HealthKit + Hevy code without changing it):
+  - PRs: after each Hevy refresh, new PRs from the existing `Analyzer.recentPRs` show once as a quiet card on Home, with a haptic. The first run marks existing PRs as seen, so there's no backlog.
+  - Recovery: the Gym area shows a 0-100 ring from the existing `Readiness` score (HRV, resting HR, sleep, training load) with its factors. Today's score is also saved as a `readiness` metric in the Health area (one per day), so charts and the assistant see it.
+  - Skip or push: the Gym card's caption reads "this week · push" / "train light" / "rest or recover", based on readiness (70+ / 50-69 / below 50).
+  - Nutrition (Features → Water, meals and supplements): a Nutrition area is created on first use, with targets in its config (`targets.water_ml`, `protein_g`, `calories`; editable later) and an optional `supplements` list. Quick log: +250/500/750 ml water, meal with protein and calories, and one-tap supplements. The area shows rings against the targets.
+  - Measurements (Features → Body measurements and photos): log waist, chest, arm, body fat and so on, with trend lines and an optional progress photo. Photos go to the private `photos` bucket (signed URLs only, about 1 hour) or stay on the device (complete file protection) if you choose.
+  - Migration 8: `ai_log_measurement` (rejects photo paths outside your own folder). Agent tool `log_measurement`. `SupabaseClient` gained Storage upload, signed URL and delete.
+
 ## Manual steps I still need to do
+- Phase 12: run `migrations/20261027000008_health.sql`, redeploy `ai-agent`.
 - Phase 11: run `migrations/20261027000007_habits_focus_goals.sql`, redeploy `ai-agent`.
 - Phase 10: redeploy `ai-agent` (plan_day task); turn on Features → Calendar and connect it in Settings → Calendar.
 - Phase 9: run `migrations/20261027000006_checkins_review_journal.sql`, redeploy `ai-agent`, turn on the features you want and set check-in times.

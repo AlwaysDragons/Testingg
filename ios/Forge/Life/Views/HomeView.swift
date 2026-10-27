@@ -7,6 +7,8 @@ struct HomeView: View {
     @Environment(CloudSync.self) private var cloud
     @Environment(BriefingService.self) private var briefing
     @Environment(CaptureStore.self) private var captures
+    @Environment(Celebrations.self) private var celebrations
+    @State private var nutritionArea: Area?
     @State private var showNewArea = false
     @State private var showCloud = false
     @State private var briefingExpanded = false
@@ -18,6 +20,9 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: DS.Space.l) {
                     header
+                    if let pr = celebrations.pr {
+                        PRBanner(pr: pr) { withAnimation(DS.Motion.spring) { celebrations.pr = nil } }
+                    }
                     if !cloud.isSignedIn {
                         DSCard {
                             EmptyState(symbol: "icloud", title: "Connect your dashboard",
@@ -73,6 +78,12 @@ struct HomeView: View {
                                 Label(captures.inbox.isEmpty ? "Inbox" : "Inbox (\(captures.inbox.count))", systemImage: "tray")
                             }
                         }
+                        if store.isEnabled(.nutrition) {
+                            Button("Log nutrition", systemImage: "drop") { Task { nutritionArea = await store.nutritionArea() } }
+                        }
+                        if store.isEnabled(.measurements) {
+                            NavigationLink { MeasurementsView() } label: { Label("Measurements", systemImage: "ruler") }
+                        }
                         Button("New area", systemImage: "plus") { showNewArea = true }
                     } label: {
                         Image(systemName: "ellipsis").fontWeight(DS.symbolWeight)
@@ -81,6 +92,7 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $showNewArea) { AreaEditor(area: nil) }
+            .sheet(item: $nutritionArea) { NutritionLogSheet(area: $0) }
             .sheet(isPresented: $showCloud) { NavigationStack { CloudSettingsView() } }
         }
     }
@@ -107,7 +119,7 @@ struct HomeView: View {
 
     private func hero(for area: Area) -> Summaries.Hero {
         let gym = area.kind == "gym" ? (model.analysis.workoutsThisWeek, max(1, model.trainingDays.count)) : nil
-        return Summaries.hero(store.data(for: area, gym: gym))
+        return Summaries.hero(store.data(for: area, gym: gym, readiness: area.kind == "gym" ? model.readiness?.score : nil))
     }
 
     @ViewBuilder

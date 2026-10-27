@@ -242,6 +242,17 @@ export const TOOLS = {
     schema: z.strictObject({}),
     toRpc: () => ({ fn: "ai_end_focus", args: {} }),
   }),
+
+  log_measurement: tool({
+    description: "Record a body measurement (waist, chest, arm, thigh, hips, neck, body_fat...). Only values the user stated.",
+    schema: z.strictObject({
+      type: z.string().trim().min(1).max(40),
+      value: z.number().finite().positive(),
+      unit: z.string().trim().min(1).max(10).describe("cm, in, %, kg"),
+      recorded_at: dateTime.optional(),
+    }),
+    toRpc: (i) => ({ fn: "ai_log_measurement", args: { p_type: i.type, p_value: i.value, p_unit: i.unit, p_recorded_at: i.recorded_at ?? null } }),
+  }),
 } satisfies Record<string, ToolSpec<any>>;
 
 export type ToolName = keyof typeof TOOLS;

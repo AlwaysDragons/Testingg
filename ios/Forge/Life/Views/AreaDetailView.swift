@@ -79,7 +79,7 @@ struct AreaDetailView: View {
 
     private var hero: Summaries.Hero {
         let gym = current.kind == "gym" ? (model.analysis.workoutsThisWeek, max(1, model.trainingDays.count)) : nil
-        return Summaries.hero(store.data(for: current, gym: gym))
+        return Summaries.hero(store.data(for: current, gym: gym, readiness: current.kind == "gym" ? model.readiness?.score : nil))
     }
 
     // MARK: Overview
@@ -87,6 +87,7 @@ struct AreaDetailView: View {
     @ViewBuilder
     private var overview: some View {
         HabitsSection(area: current)
+        if current.config["targets"] != nil { NutritionSection(area: current) }
         if current.kind == "gym" { gymOverview }
         let upcoming = store.items(in: current).filter { !$0.isDone && !$0.isHabit }.prefix(3)
         if !upcoming.isEmpty {
@@ -128,11 +129,9 @@ struct AreaDetailView: View {
                 }
             }
             .buttonStyle(.plain)
-            if let r = model.readiness {
-                ListRow(title: "Readiness", subtitle: r.label, symbol: "heart") { RowValue(text: "\(r.score)") }
-            }
         }
         .listRowBackground(DS.Palette.surface)
+        RecoverySection(accent: accent)
         let weeks = model.analysis.weeks.suffix(8)
         if weeks.count > 1 {
             Section {

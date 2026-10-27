@@ -8,7 +8,7 @@ enum WidgetBridge {
         let today = store.today
         let tiles = store.homeAreas.prefix(4).map { area -> WidgetSnapshot.AreaTile in
             let gym = area.kind == "gym" ? (model.analysis.workoutsThisWeek, max(1, model.trainingDays.count)) : nil
-            let h = Summaries.hero(store.data(for: area, gym: gym))
+            let h = Summaries.hero(store.data(for: area, gym: gym, readiness: area.kind == "gym" ? model.readiness?.score : nil))
             return .init(id: area.id.uuidString, name: area.name, symbol: area.symbol, accentHex: area.accentHex,
                          value: h.value, label: h.secondary ?? h.label, progress: h.progress)
         }

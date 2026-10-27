@@ -107,13 +107,39 @@ actor SupabaseClient {
         return try await send("POST", "functions/v1/\(name)", body: body, auth: true, timeout: timeout)
     }
 
+    // MARK: Storage (private buckets; files under "<user_id>/...")
+
+    /// Uploads (or replaces) a file in a private bucket.
+    func upload(bucket: String, path: String, data: Data, contentType: String) async throws {
+        try await refreshIfNeeded()
+        _ = try await send("POST", "storage/v1/object/\(bucket)/\(path)", body: data, auth: true, prefer: nil, timeout: 60,
+                           contentType: contentType, extraHeaders: ["x-upsert": "true"])
+    }
+
+    /// A time-limited URL for a private file (the only way the app reads stored photos).
+    func signedURL(bucket: String, path: String, expiresIn: Int = 3600) async throws -> URL {
+        try await refreshIfNeeded()
+        struct Signed: Decodable { let signedURL: String }
+        let body = try JSONEncoder().encode(["expiresIn": expiresIn])
+        let data = try await send("POST", "storage/v1/object/sign/\(bucket)/\(path)", body: body, auth: true)
+        let signed = try JSONDecoder().decode(Signed.self, from: data)
+        guard let url = URL(string: baseURL.absoluteString + "/storage/v1" + signed.signedURL) else { throw APIError.badResponse }
+        return url
+    }
+
+    func removeObject(bucket: String, path: String) async throws {
+        try await refreshIfNeeded()
+        _ = try await send("DELETE", "storage/v1/object/\(bucket)/\(path)", body: nil, auth: true)
+    }
+
     func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         try Self.decoder.decode(type, from: data)
     }
 
     // MARK: Transport
 
-    private func send(_ method: String, _ path: String, query: [URLQueryItem] = [], body: Data?, auth: Bool, prefer: String? = nil, timeout: TimeInterval = 30) async throws -> Data {
+    private func send(_ method: String, _ path: String, query: [URLQueryItem] = [], body: Data?, auth: Bool, prefer: String? = nil, timeout: TimeInterval = 30,
+                      contentType: String = "application/json", extraHeaders: [String: String] = [:]) async throws -> Data {
         var comps = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { comps.queryItems = query }
         var req = URLRequest(url: comps.url!)
@@ -121,7 +147,8 @@ actor SupabaseClient {
         req.timeoutInterval = timeout
         req.setValue(anonKey, forHTTPHeaderField: "apikey")
         req.setValue("Bearer \(auth ? (session?.accessToken ?? anonKey) : anonKey)", forHTTPHeaderField: "Authorization")
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(contentType, forHTTPHeaderField: "Content-Type")
+        for (k, v) in extraHeaders { req.setValue(v, forHTTPHeaderField: k) }
         if let prefer { req.setValue(prefer, forHTTPHeaderField: "Prefer") }
         req.httpBody = body
         let (data, resp) = try await URLSession.shared.data(for: req)

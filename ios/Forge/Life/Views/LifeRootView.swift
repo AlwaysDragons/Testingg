@@ -14,6 +14,8 @@ struct LifeRootView: View {
     @State private var calendar = CalendarService()
     @State private var habits = HabitsStore()
     @State private var focus = FocusStore()
+    @State private var celebrations = Celebrations()
+    @State private var measurements = MeasurementStore()
 
     var body: some View {
         LifeTabs()
@@ -26,6 +28,8 @@ struct LifeRootView: View {
             .environment(calendar)
             .environment(habits)
             .environment(focus)
+            .environment(celebrations)
+            .environment(measurements)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -47,6 +51,8 @@ private struct LifeTabs: View {
     @Environment(CalendarService.self) private var calendar
     @Environment(HabitsStore.self) private var habits
     @Environment(FocusStore.self) private var focus
+    @Environment(Celebrations.self) private var celebrations
+    @Environment(MeasurementStore.self) private var measurements
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
@@ -68,6 +74,7 @@ private struct LifeTabs: View {
             await everyday.connect(cloud.supabase)
             await habits.connect(cloud.supabase)
             await focus.connect(cloud.supabase, store: store)
+            await measurements.connect(cloud.supabase)
             await Self.scheduleEveryday(store)
             await Self.remindersChanged(store, reminderSync)
             await briefing.refreshIfNeeded(cloud.supabase, deviceContext: deviceContext)
@@ -100,6 +107,12 @@ private struct LifeTabs: View {
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name(IntentEvents.Event.openCapture.rawValue))) { _ in
             IntentEvents.pendingCapture = false
             captures.open()
+        }
+        // After each Hevy / Health refresh: celebrate new PRs, save today's readiness for the assistant.
+        .onChange(of: model.isSyncing) { _, syncing in
+            guard !syncing else { return }
+            celebrations.check(model)
+            Task { await Self.pushReadiness(model, store, cloud.supabase) }
         }
         .onReceive(NotificationCenter.default.publisher(for: Notification.Name(IntentEvents.Event.dashboardChanged.rawValue))) { _ in
             Task { await store.reloadAll() }
@@ -142,6 +155,16 @@ private struct LifeTabs: View {
 }
 
 extension LifeTabs {
+    /// Stores today's readiness as a metric in the Health area (upsert per day), so the assistant and charts see it.
+    @MainActor
+    static func pushReadiness(_ model: AppModel, _ store: LifeStore, _ client: SupabaseClient?) async {
+        guard let client, !model.demoMode, let r = model.readiness, let health = store.area(named: "Health") else { return }
+        let row: Row = ["area_id": .of(health.id), "name": .string("readiness"), "value": .int(r.score), "unit": .null,
+                        "recorded_at": .of(Calendar.current.startOfDay(for: Date()).addingTimeInterval(12 * 3600)),
+                        "source": .string("forge"), "external_id": .string("readiness:" + LifeCoding.dayString(Date()))]
+        try? await CloudRepository(client: client).upsertMetrics([row])
+    }
+
     /// Calendar summary for the assistant, only when Calendar is on (events otherwise stay on the device).
     var deviceContext: String? {
         store.isEnabled(.calendar) && calendar.authorized ? Timeline.context(events: calendar.today) : nil

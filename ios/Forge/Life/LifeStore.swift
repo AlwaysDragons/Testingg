@@ -117,9 +117,9 @@ final class LifeStore {
     func reminders(in area: Area) -> [Reminder] { reminders.filter { $0.areaId == area.id } }
     func children(of item: Item) -> [Item] { items.filter { $0.parentId == item.id } }
 
-    func data(for area: Area, gym: (workouts: Int, target: Int)? = nil) -> Summaries.AreaData {
+    func data(for area: Area, gym: (workouts: Int, target: Int)? = nil, readiness: Int? = nil) -> Summaries.AreaData {
         Summaries.AreaData(area: area, items: items(in: area), logs: logs(in: area), metrics: metrics(in: area),
-                           workoutsThisWeek: gym?.workouts, weeklyTarget: gym?.target)
+                           workoutsThisWeek: gym?.workouts, weeklyTarget: gym?.target, readiness: readiness)
     }
 
     var today: Summaries.Today { Summaries.today(items: items, reminders: reminders, logs: logs) }

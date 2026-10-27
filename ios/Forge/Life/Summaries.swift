@@ -31,6 +31,8 @@ enum Summaries {
         /// Gym only: workouts this week and the weekly target (from the existing Hevy analysis).
         var workoutsThisWeek: Int?
         var weeklyTarget: Int?
+        /// Gym only: today's readiness (0-100) for "skip or push today?".
+        var readiness: Int?
     }
 
     // MARK: Hero stat
@@ -45,7 +47,10 @@ enum Summaries {
             let done = d.workoutsThisWeek ?? 0
             let target = max(1, config["weekly_target"]?.int ?? d.weeklyTarget ?? 3)
             let behind = done < expectedByNow(target: target, now: now, calendar: calendar)
-            return Hero(value: "\(done)/\(target)", label: "workouts this week", progress: Double(done) / Double(target),
+            let verdict = SkipOrPush.verdict(d.readiness)
+            // One caption line: "workouts this week", or "this week · push today" when readiness is known.
+            return Hero(value: "\(done)/\(target)", label: verdict.map { "this week · \($0.label.lowercased().replacingOccurrences(of: " today", with: ""))" } ?? "workouts this week",
+                        progress: Double(done) / Double(target),
                         status: done >= target ? .good : behind ? .behind : .none)
         case "habits":
             let habits = d.items.filter { $0.isHabit && !$0.isDone }
