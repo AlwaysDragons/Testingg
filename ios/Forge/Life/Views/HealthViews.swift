@@ -271,44 +271,75 @@ private struct AddMeasurementSheet: View {
     @State private var unit = "cm"
     @State private var item: PhotosPickerItem?
     @State private var photo: Data?
-    private let types = ["waist", "chest", "arm", "thigh", "hips", "neck", "body_fat", "weight"]
+    private let types: [String] = ["waist", "chest", "arm", "thigh", "hips", "neck", "body_fat", "weight"]
+    private let units: [String] = ["cm", "in", "%", "kg", "lb"]
+
+    private var parsed: Double? { Double(value.replacingOccurrences(of: ",", with: ".")) }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    Picker("Type", selection: $type) { ForEach(types, id: \.self) { Text(Summaries.label(forMetric: $0).capitalizedFirst).tag($0) } }
-                    HStack {
-                        TextField("Value", text: $value).keyboardType(.decimalPad)
-                        Picker("Unit", selection: $unit) { ForEach(["cm", "in", "%", "kg", "lb"], id: \.self) { Text($0).tag($0) } }.labelsHidden()
-                    }
-                    PhotosPicker(selection: $item, matching: .images) {
-                        Label(photo == nil ? "Add progress photo" : "Photo added", systemImage: photo == nil ? "camera" : "checkmark")
-                    }
+            form
+                .navigationTitle("New measurement")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { toolbar }
+                .onChange(of: type) { _, t in unit = Self.defaultUnit(t) }
+                .onChange(of: item) { _, new in Task { await loadPhoto(new) } }
+        }
+    }
+
+    private var form: some View {
+        Form {
+            Section {
+                Picker("Type", selection: $type) {
+                    ForEach(types, id: \.self) { t in Text(Summaries.label(forMetric: t).capitalizedFirst).tag(t) }
                 }
-                .listRowBackground(DS.Palette.surface)
-            }
-            .scrollContentBackground(.hidden)
-            .dsScreen()
-            .navigationTitle("New measurement")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        guard let v = Double(value.replacingOccurrences(of: ",", with: ".")) else { return }
-                        Task { await measurements.add(type: type, value: v, unit: unit, photo: photo); dismiss() }
+                HStack {
+                    TextField("Value", text: $value).keyboardType(.decimalPad)
+                    Picker("Unit", selection: $unit) {
+                        ForEach(units, id: \.self) { u in Text(u).tag(u) }
                     }
-                    .disabled(Double(value.replacingOccurrences(of: ",", with: ".")) == nil)
+                    .labelsHidden()
                 }
+                PhotosPicker(selection: $item, matching: .images) { photoLabel }
             }
-            .onChange(of: type) { _, t in unit = t == "body_fat" ? "%" : t == "weight" ? "kg" : "cm" }
-            .onChange(of: item) { _, new in
-                Task {
-                    guard let data = try? await new?.loadTransferable(type: Data.self), let img = UIImage(data: data) else { return }
-                    photo = img.jpegData(compressionQuality: 0.7)
-                }
-            }
+            .listRowBackground(DS.Palette.surface)
+        }
+        .scrollContentBackground(.hidden)
+        .dsScreen()
+    }
+
+    private var photoLabel: some View {
+        let added = photo != nil
+        return Label(added ? "Photo added" : "Add progress photo", systemImage: added ? "checkmark" : "camera")
+    }
+
+    @ToolbarContentBuilder
+    private var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+        ToolbarItem(placement: .confirmationAction) {
+            Button("Save") { save() }.disabled(parsed == nil)
+        }
+    }
+
+    private func save() {
+        guard let v = parsed else { return }
+        let t = type, u = unit, p = photo
+        Task {
+            await measurements.add(type: t, value: v, unit: u, photo: p)
+            dismiss()
+        }
+    }
+
+    private func loadPhoto(_ new: PhotosPickerItem?) async {
+        guard let data = try? await new?.loadTransferable(type: Data.self), let img = UIImage(data: data) else { return }
+        photo = img.jpegData(compressionQuality: 0.7)
+    }
+
+    static func defaultUnit(_ t: String) -> String {
+        switch t {
+        case "body_fat": return "%"
+        case "weight": return "kg"
+        default: return "cm"
         }
     }
 }
