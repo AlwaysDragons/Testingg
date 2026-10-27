@@ -6,12 +6,27 @@ struct TodayView: View {
     @Environment(LifeStore.self) private var store
     @State private var editingReminder: Reminder?
     @Environment(EverydayStore.self) private var everyday
+    @Environment(CalendarService.self) private var calendar
+    @State private var showPlan = false
+
+    /// With Calendar on, today is one timeline of events, timed items and reminders.
+    private var useTimeline: Bool { store.isEnabled(.calendar) && calendar.authorized }
 
     var body: some View {
         NavigationStack {
             List {
                 everydaySection
-                let dueReminders = store.reminderGroups().today
+                if useTimeline {
+                    let entries = Timeline.build(events: calendar.today, items: store.items, reminders: store.reminders)
+                    Section {
+                        if entries.isEmpty { Text("Nothing scheduled today").font(DS.Typo.body).foregroundStyle(DS.Palette.secondary) }
+                        ForEach(entries) { entry in
+                            timelineRow(entry)
+                        }
+                    } header: { SectionHeader(title: "Timeline") }
+                    .listRowBackground(DS.Palette.surface)
+                }
+                let dueReminders = useTimeline ? [] : store.reminderGroups().today
                 Section {
                     ForEach(dueReminders.prefix(6)) { r in ReminderRow(reminder: r) { editingReminder = r } }
                     NavigationLink { RemindersView() } label: {
@@ -20,8 +35,8 @@ struct TodayView: View {
                 } header: { if !dueReminders.isEmpty { SectionHeader(title: "Reminders") } }
                 .listRowBackground(DS.Palette.surface)
                 let groups = Summaries.group(store.items.filter { !$0.isDone && !$0.isHabit && $0.dueDate != nil })
-                    .filter { [Summaries.DueGroup.overdue, .today, .tomorrow].contains($0.0) }
-                if groups.isEmpty {
+                    .filter { useTimeline ? [Summaries.DueGroup.overdue, .tomorrow].contains($0.0) : [Summaries.DueGroup.overdue, .today, .tomorrow].contains($0.0) }
+                if groups.isEmpty && !useTimeline {
                     Section {
                         EmptyState(symbol: "sun.max", title: "Nothing due", message: "Items with a due date show up here.")
                     }
@@ -58,6 +73,36 @@ struct TodayView: View {
             .navigationTitle("Today")
             .refreshable { await store.reloadAll() }
             .sheet(item: $editingReminder) { ReminderEditor(reminder: $0) }
+            .sheet(isPresented: $showPlan) { PlanDaySheet() }
+            .toolbar {
+                if useTimeline {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Plan my day") { showPlan = true }
+                    }
+                }
+            }
+            .onAppear { if useTimeline { calendar.reload() } }
+        }
+    }
+
+    @ViewBuilder
+    private func timelineRow(_ entry: TimelineEntry) -> some View {
+        switch entry.kind {
+        case .item(let item):
+            NavigationLink { ItemDetailView(item: item) } label: { TimelineRow(entry: entry) }
+                .swipeActions(edge: .leading) {
+                    Button("Done", systemImage: "checkmark") { DS.Haptics.success(); Task { await store.setDone(item, true) } }
+                        .tint(DS.Palette.positive)
+                }
+        case .reminder(let r):
+            Button { editingReminder = r } label: { TimelineRow(entry: entry) }
+                .buttonStyle(.plain)
+                .swipeActions(edge: .leading) {
+                    Button("Done", systemImage: "checkmark") { DS.Haptics.success(); Task { await store.completeReminder(r) } }
+                        .tint(DS.Palette.positive)
+                }
+        case .event:
+            TimelineRow(entry: entry)
         }
     }
 

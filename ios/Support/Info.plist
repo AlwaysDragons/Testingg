@@ -42,6 +42,8 @@
 	</array>
 	<key>NSSupportsLiveActivities</key>
 	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Forge shows your events in Today and, only when you approve, adds planned time blocks.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Forge syncs the Reminders lists you choose with your dashboard, both ways.</string>
 	<key>NSHealthUpdateUsageDescription</key>

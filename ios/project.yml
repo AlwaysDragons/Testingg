@@ -44,6 +44,7 @@ targets:
         CFBundleURLTypes:
           - CFBundleURLName: forge
             CFBundleURLSchemes: [forge]
+        NSCalendarsFullAccessUsageDescription: Forge shows your events in Today and, only when you approve, adds planned time blocks.
         NSRemindersFullAccessUsageDescription: Forge syncs the Reminders lists you choose with your dashboard, both ways.
     dependencies:
       - target: ForgeWidgets

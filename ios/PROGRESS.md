@@ -38,7 +38,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 7. Widgets, Live Activities, App Intents
 - [x] 8. Quick capture + inbox + routing + Siri/Action Button/widget entry
 - [x] 9. Check-ins + weekly review + daily journal
-- [ ] 10. Calendar integration + unified Today timeline
+- [x] 10. Calendar integration + unified Today timeline
 - [ ] 11. Habits/streaks + focus timer + "What should I do now?" + goals with milestones
 - [ ] 12. Health features on existing HealthKit/Hevy code (PRs, recovery, skip-or-push, nutrition, measurements, photos)
 - [ ] 13. Money (expenses, budgets, subscriptions, savings goals)
@@ -148,7 +148,15 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Journal (Today → Journal): write today's entry with one tap; yesterday's is written automatically the first time you open the journal. Tap an entry to edit it (saved as yours, so the AI won't change it).
   - Verified: 16 SQL checks, Deno tests.
 
+- Phase 10 (calendar, behind Features → Calendar):
+  - `CalendarService` (EventKit, `requestFullAccessToEvents`): you pick which calendars show on Today (Settings → Calendar). Events never go to Supabase.
+  - Today becomes one timeline: all-day entries first, then events, timed items and reminders in time order (`Timeline.build`, unit-tested), plus Overdue and Tomorrow below. Swipe items and reminders to complete them.
+  - Time blocking: "Plan my day" sends only a short summary (today's events and free slots, `Timeline.context`) to the `plan_day` task. It drafts up to 8 blocks inside your free time; you pick which ones to add, and only then are events written to your chosen calendar.
+  - The briefing also gets the calendar summary when Calendar is on.
+  - Info.plist / project.yml: `NSCalendarsFullAccessUsageDescription`.
+
 ## Manual steps I still need to do
+- Phase 10: redeploy `ai-agent` (plan_day task); turn on Features → Calendar and connect it in Settings → Calendar.
 - Phase 9: run `migrations/20261027000006_checkins_review_journal.sql`, redeploy `ai-agent`, turn on the features you want and set check-in times.
 - Phase 8: run `migrations/20261027000005_capture.sql`, redeploy `ai-agent`, turn on Settings → Features → Quick capture.
 - Phase 7 (optional, Xcode route): `brew install xcodegen && xcodegen` in `ios/`, open Forge.xcodeproj, set your team and the App Group on both targets, run.

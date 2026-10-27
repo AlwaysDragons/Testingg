@@ -150,6 +150,27 @@ TASKS.journal = {
   },
 };
 
+TASKS.plan_day = {
+  instructions: `Task: draft a time-blocked plan for the rest of the user's day, then call submit_plan.
+- Use get_daily_briefing and query_area to see what's due and important.
+- Place blocks only inside the free slots the device sent; never overlap calendar events. Leave short breaks.
+- Prefer overdue and high-priority items; use the item's title and pass item_id when a block is for an item.
+- start/end: ISO 8601 with the user's timezone offset. Up to 8 blocks. note: one short sentence, optional.
+- This is a draft: the user approves before anything is written to their calendar.`,
+  prompt: (p) => `Plan my day.\n${typeof p.device_context === "string" ? p.device_context : "No calendar data."}`,
+  tools: READ_ONLY_TOOLS,
+  finish: finishTool("submit_plan", "Return the drafted plan.", z.strictObject({
+    blocks: z.array(z.strictObject({
+      title: z.string().trim().min(1).max(120),
+      start: z.iso.datetime({ offset: true }),
+      end: z.iso.datetime({ offset: true }),
+      item_id: z.uuid().optional(),
+    })).max(8),
+    note: z.string().max(240).optional(),
+  })),
+  effort: "medium",
+};
+
 export function toolsFor(task: Task) {
   return TOOL_DEFINITIONS.filter((t) => (task.tools as string[]).includes(t.name));
 }

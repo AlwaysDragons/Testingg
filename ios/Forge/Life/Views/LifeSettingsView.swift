@@ -13,6 +13,7 @@ struct LifeSettingsView: View {
                     NavigationLink("Areas") { AreasSettingsView() }
                     NavigationLink("Features") { FeaturesSettingsView() }
                     NavigationLink("Reminders and notifications") { RemindersSettingsView() }
+                    if store.isEnabled(.calendar) { NavigationLink("Calendar") { CalendarSettingsView() } }
                 }
                 .listRowBackground(DS.Palette.surface)
                 Section {

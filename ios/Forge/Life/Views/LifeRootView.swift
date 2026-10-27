@@ -11,6 +11,7 @@ struct LifeRootView: View {
     @State private var briefing = BriefingService()
     @State private var captures = CaptureStore()
     @State private var everyday = EverydayStore()
+    @State private var calendar = CalendarService()
 
     var body: some View {
         LifeTabs()
@@ -20,6 +21,7 @@ struct LifeRootView: View {
             .environment(briefing)
             .environment(captures)
             .environment(everyday)
+            .environment(calendar)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -38,6 +40,7 @@ private struct LifeTabs: View {
     @Environment(AppModel.self) private var model
     @Environment(CaptureStore.self) private var captures
     @Environment(EverydayStore.self) private var everyday
+    @Environment(CalendarService.self) private var calendar
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
@@ -58,14 +61,14 @@ private struct LifeTabs: View {
             await everyday.connect(cloud.supabase)
             await Self.scheduleEveryday(store)
             await Self.remindersChanged(store, reminderSync)
-            await briefing.refreshIfNeeded(cloud.supabase)
+            await briefing.refreshIfNeeded(cloud.supabase, deviceContext: deviceContext)
             await BriefingService.schedule(settings: store.settings)
         }
         .onChange(of: phase) { _, new in
             if new == .active {
                 Task {
                     await Self.remindersChanged(store, reminderSync)
-                    await briefing.refreshIfNeeded(cloud.supabase)
+                    await briefing.refreshIfNeeded(cloud.supabase, deviceContext: deviceContext)
                 }
             }
             if new == .background { Task { await BriefingService.schedule(settings: store.settings) } }
@@ -124,6 +127,11 @@ private struct LifeTabs: View {
 }
 
 extension LifeTabs {
+    /// Calendar summary for the assistant, only when Calendar is on (events otherwise stay on the device).
+    var deviceContext: String? {
+        store.isEnabled(.calendar) && calendar.authorized ? Timeline.context(events: calendar.today) : nil
+    }
+
     @MainActor
     static func scheduleEveryday(_ store: LifeStore) async {
         await EverydayStore.scheduleNotifications(settings: store.settings, checkins: store.isEnabled(.checkins), review: store.isEnabled(.weeklyReview))
