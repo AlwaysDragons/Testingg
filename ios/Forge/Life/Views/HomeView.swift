@@ -150,7 +150,7 @@ struct AreaCard: View {
                 Spacer(minLength: 0)
                 if let p = hero.progress { ProgressRing(progress: p, accent: accent, lineWidth: 4, size: 28) }
             }
-            if hero.progress == nil, hero.trend.count > 1 { Sparkline(values: hero.trend, accent: accent) }
+            if hero.progress == nil, hero.trend.count > 1 { TrendLine(values: hero.trend, accent: accent) }
         }
         .frame(minHeight: 128, alignment: .topLeading)
         .dsCard()

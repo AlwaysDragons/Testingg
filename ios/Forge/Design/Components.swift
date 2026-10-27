@@ -66,7 +66,7 @@ struct ProgressRing: View {
 }
 
 /// A minimal line of recent values (no axes, no labels).
-struct Sparkline: View {
+struct TrendLine: View {
     let values: [Double]
     var accent: Color = DS.Palette.accent
 
@@ -243,7 +243,7 @@ struct DesignGallery: View {
                             Spacer()
                         }
                         StatView(value: "7.4h", label: "Sleep", secondary: "7-day average")
-                        Sparkline(values: [6.8, 7.1, 7.9, 6.5, 7.4, 8.0, 7.2], accent: DS.Palette.area(hex: "#4FB3D9"))
+                        TrendLine(values: [6.8, 7.1, 7.9, 6.5, 7.4, 8.0, 7.2], accent: DS.Palette.area(hex: "#4FB3D9"))
                     }
                 }
                 SectionHeader(title: "Today")
