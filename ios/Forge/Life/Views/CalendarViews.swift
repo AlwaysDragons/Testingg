@@ -36,8 +36,8 @@ struct PlanDaySheet: View {
     @Environment(CalendarService.self) private var calendar
     @Environment(CloudSync.self) private var cloud
     @Environment(\.dismiss) private var dismiss
-    @State private var plan: DayPlan?
-    @State private var selected: Set<DayPlan.Block> = []
+    @State private var plan: TimeBlockPlan?
+    @State private var selected: Set<TimeBlockPlan.Block> = []
     @State private var loading = false
     @State private var error: String?
 
@@ -91,7 +91,7 @@ struct PlanDaySheet: View {
         defer { loading = false }
         do {
             let r = try await AgentClient(supabase: client)
-                .task("plan_day", params: ["device_context": .string(Timeline.context(events: calendar.today))], as: DayPlan.self)
+                .task("plan_day", params: ["device_context": .string(Timeline.context(events: calendar.today))], as: TimeBlockPlan.self)
             plan = r.result
             selected = Set(r.result.blocks)
         } catch {
@@ -99,7 +99,7 @@ struct PlanDaySheet: View {
         }
     }
 
-    private func range(_ b: DayPlan.Block) -> String {
+    private func range(_ b: TimeBlockPlan.Block) -> String {
         guard let s = LifeCoding.parse(b.start), let e = LifeCoding.parse(b.end) else { return "" }
         return "\(s.formatted(date: .omitted, time: .shortened)) – \(e.formatted(date: .omitted, time: .shortened))"
     }
