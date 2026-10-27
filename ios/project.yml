@@ -36,6 +36,8 @@ targets:
           UIApplicationSupportsMultipleScenes: false
         NSHealthShareUsageDescription: Forge reads your sleep, HRV, resting heart rate, activity, body composition and nutrition to calculate readiness and optimize your training and recovery.
         NSHealthUpdateUsageDescription: Forge does not write to Apple Health.
+        BGTaskSchedulerPermittedIdentifiers: [com.forge.briefing]
+        UIBackgroundModes: [fetch]
         NSRemindersFullAccessUsageDescription: Forge syncs the Reminders lists you choose with your dashboard, both ways.
     entitlements:
       path: Support/Xcode.entitlements

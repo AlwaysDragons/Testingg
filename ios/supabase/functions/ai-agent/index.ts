@@ -1,13 +1,16 @@
 // ai-agent Edge Function.
 // POST { "message": "..." } with the user's Supabase session token as `Authorization: Bearer <jwt>`.
 // Returns { reply, device_actions, tool_calls }.
+// Task modes: POST { "mode": "briefing", "params": {...} } returns { result, reply, device_actions, tool_calls }
+// (see tasks.ts); task runs are not saved to the chat history.
 //
 // Secrets: ANTHROPIC_API_KEY (set with `supabase secrets set`). SUPABASE_URL and SUPABASE_ANON_KEY
 // are injected by Supabase. The service_role key is NOT used: every query runs as the user, so RLS applies.
 // Optional: AI_MODEL (default claude-sonnet-5-5), AI_EFFORT (default medium).
 import Anthropic from "npm:@anthropic-ai/sdk@1.3.0";
-import { createClient } from "npm:@supabase/supabase-js@2.118.0";
-import { type AgentDeps, DEFAULT_MODEL, historyFrom, runAgent } from "./agent.ts";
+import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.118.0";
+import { type AgentDeps, DEFAULT_MODEL, historyFrom, runAgent, SYSTEM_PROMPT } from "./agent.ts";
+import { TASKS, toolsFor } from "./tasks.ts";
 import { runTool } from "./tools.ts";
 
 const MAX_MESSAGE_CHARS = 4000;
@@ -43,12 +46,18 @@ Deno.serve(async (req) => {
   if (userError || !userData.user) return json({ error: "unauthorized" }, 401);
 
   let message: string;
+  let mode = "chat";
+  let params: Record<string, unknown> = {};
   try {
     const body = await req.json();
     message = typeof body?.message === "string" ? body.message.trim() : "";
+    if (typeof body?.mode === "string") mode = body.mode;
+    if (body?.params && typeof body.params === "object") params = body.params;
   } catch {
     return json({ error: "invalid_json" }, 400);
   }
+  if (JSON.stringify(params).length > MAX_MESSAGE_CHARS * 2) return json({ error: "params_too_long" }, 400);
+  if (mode !== "chat") return runTask(mode, params, db);
   if (!message) return json({ error: "message_required" }, 400);
   if (message.length > MAX_MESSAGE_CHARS) return json({ error: "message_too_long" }, 400);
 
@@ -92,3 +101,43 @@ Deno.serve(async (req) => {
     return json({ error: status === 429 ? "rate_limited" : "agent_failed" }, status);
   }
 });
+
+// deno-lint-ignore no-explicit-any
+type Db = SupabaseClient<any, "public", "public", any, any>;
+
+async function contextLine(db: Db) {
+  const { data: settings } = await db.from("user_settings").select("timezone, default_notify_mode").maybeSingle();
+  const tz = (settings as { timezone?: string } | null)?.timezone ?? "UTC";
+  const notify = (settings as { default_notify_mode?: string } | null)?.default_notify_mode ?? "app";
+  return `Now: ${new Date().toISOString()} (user timezone ${tz}; default notify mode ${notify}).`;
+}
+
+/** One-shot task modes (briefing, ...): scoped tools, a structured result, no chat history. */
+async function runTask(mode: string, params: Record<string, unknown>, db: Db) {
+  const task = TASKS[mode];
+  if (!task) return json({ error: "unknown_mode" }, 400);
+  try {
+    const result = await runAgent([], {
+      role: "user",
+      content: [{ type: "text", text: await contextLine(db) }, { type: "text", text: task.prompt(params) }],
+    }, {
+      createMessage: (p) => anthropic.beta.messages.create(p),
+      runTool: (name, input) =>
+        (task.tools as string[]).includes(name)
+          ? runTool(name, input, (fn, args) => db.rpc(fn, args))
+          : Promise.resolve({ ok: false as const, error: `tool_not_allowed: ${name}` }),
+      model,
+      effort: task.effort ?? effort,
+      system: `${SYSTEM_PROMPT}\n\n${task.instructions}`,
+      tools: toolsFor(task),
+      finish: task.finish,
+    });
+    if (result.result === undefined) return json({ error: "task_incomplete", reply: result.reply }, 502);
+    return json({ result: result.result, reply: result.reply, device_actions: result.deviceActions, tool_calls: result.toolCalls,
+      tool_results: result.toolResults ?? [] });
+  } catch (err) {
+    console.error(`ai-agent task ${mode} failed`, err);
+    const status = err instanceof Anthropic.RateLimitError ? 429 : 502;
+    return json({ error: status === 429 ? "rate_limited" : "agent_failed" }, status);
+  }
+}

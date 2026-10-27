@@ -5,6 +5,7 @@ struct HomeView: View {
     @Environment(LifeStore.self) private var store
     @Environment(AppModel.self) private var model
     @Environment(CloudSync.self) private var cloud
+    @Environment(BriefingService.self) private var briefing
     @State private var showNewArea = false
     @State private var showCloud = false
     @State private var briefingExpanded = false
@@ -52,6 +53,7 @@ struct HomeView: View {
             .refreshable {
                 await model.refreshAll()   // existing Hevy + Health refresh (also pushes to Supabase)
                 await store.reloadAll()
+                await briefing.refreshIfNeeded(cloud.supabase, force: true)
             }
             .navigationDestination(for: UUID.self) { id in
                 if let area = store.area(id) { AreaDetailView(area: area) }
@@ -79,13 +81,16 @@ struct HomeView: View {
                 .foregroundStyle(DS.Palette.secondary)
                 .lineLimit(briefingExpanded ? nil : 2)
                 .onTapGesture { withAnimation(DS.Motion.spring) { briefingExpanded.toggle() } }
+            if briefingExpanded, let detail = briefing.today?.detail, !detail.isEmpty {
+                Text(detail).font(DS.Typo.caption).foregroundStyle(DS.Palette.secondary).transition(.opacity)
+            }
         }
         .padding(.top, DS.Space.s)
     }
 
     /// The AI briefing (Phase 6) when available, else a local summary.
     private var briefingText: String {
-        BriefingCache.today()?.text ?? Summaries.line(store.today)
+        briefing.today?.text ?? Summaries.line(store.today)
     }
 
     private func hero(for area: Area) -> Summaries.Hero {

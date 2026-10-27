@@ -24,13 +24,32 @@ Rules:
 - Reply in plain language, at most 2 sentences unless the user asks for detail. After changes, confirm what was done in one short line. No emoji, no exclamation marks.`;
 
 export type ToolCallLog = { name: string; input: unknown; ok: boolean; error?: string };
-export type AgentResult = { reply: string; toolCalls: ToolCallLog[]; deviceActions: DeviceAction[]; stopReason: string | null };
+export type AgentResult = {
+  reply: string;
+  toolCalls: ToolCallLog[];
+  deviceActions: DeviceAction[];
+  stopReason: string | null;
+  /** Task modes: the validated input of the finish tool. */
+  result?: unknown;
+  /** Every successful tool result, in order (task modes use these, e.g. capture undo). */
+  toolResults?: { name: string; result: unknown }[];
+};
+
+/** A schema-validated "finish" tool that ends a task mode with a structured result. */
+export type FinishTool = {
+  definition: { name: string; description: string; input_schema: { type: "object"; [key: string]: unknown } };
+  validate: (input: unknown) => { ok: true; value: unknown } | { ok: false; error: string };
+};
 
 export type AgentDeps = {
   createMessage: (params: Anthropic.Beta.Messages.MessageCreateParamsNonStreaming) => Promise<Anthropic.Beta.Messages.BetaMessage>;
   runTool: (name: string, input: unknown) => Promise<ToolOutcome>;
   model?: string;
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
+  /** Task modes: a different system prompt, a narrower tool list, and a finish tool. */
+  system?: string;
+  tools?: typeof TOOL_DEFINITIONS;
+  finish?: FinishTool;
 };
 
 export async function runAgent(history: MessageParam[], userTurn: MessageParam, deps: AgentDeps): Promise<AgentResult> {
@@ -38,13 +57,15 @@ export async function runAgent(history: MessageParam[], userTurn: MessageParam, 
   const messages: MessageParam[] = [...history, userTurn];
   const toolCalls: ToolCallLog[] = [];
   const deviceActions: DeviceAction[] = [];
+  const toolResults: { name: string; result: unknown }[] = [];
+  const tools = [...(deps.tools ?? TOOL_DEFINITIONS), ...(deps.finish ? [deps.finish.definition] : [])];
 
   for (let step = 0; step < MAX_STEPS; step++) {
     const response = await deps.createMessage({
       model: deps.model ?? DEFAULT_MODEL,
       max_tokens: 16000,
-      system: SYSTEM_PROMPT,
-      tools: TOOL_DEFINITIONS,
+      system: deps.system ?? SYSTEM_PROMPT,
+      tools,
       messages,
       thinking: { type: "adaptive" },
       output_config: { effort: deps.effort ?? "medium" },
@@ -60,7 +81,7 @@ export async function runAgent(history: MessageParam[], userTurn: MessageParam, 
 
     const toolUses = response.content.filter((b): b is Anthropic.Beta.Messages.BetaToolUseBlock => b.type === "tool_use");
     if (response.stop_reason !== "tool_use" || toolUses.length === 0) {
-      return { reply: textOf(response.content), toolCalls, deviceActions, stopReason: response.stop_reason };
+      return { reply: textOf(response.content), toolCalls, deviceActions, stopReason: response.stop_reason, toolResults };
     }
 
     messages.push({ role: "assistant", content: response.content });
@@ -69,7 +90,18 @@ export async function runAgent(history: MessageParam[], userTurn: MessageParam, 
     // every result in one user message.
     const results: ToolResult[] = [];
     for (const use of toolUses) {
+      if (deps.finish && use.name === deps.finish.definition.name) {
+        const v = deps.finish.validate(use.input);
+        if (v.ok) {
+          toolCalls.push({ name: use.name, input: use.input, ok: true });
+          return { reply: textOf(response.content), toolCalls, deviceActions, stopReason: "finished", result: v.value, toolResults };
+        }
+        toolCalls.push({ name: use.name, input: use.input, ok: false, error: v.error });
+        results.push({ type: "tool_result", tool_use_id: use.id, content: JSON.stringify({ error: v.error }), is_error: true });
+        continue;
+      }
       const outcome = await deps.runTool(use.name, use.input);
+      if (outcome.ok) toolResults.push({ name: use.name, result: outcome.result });
       toolCalls.push({ name: use.name, input: use.input, ok: outcome.ok, ...(outcome.ok ? {} : { error: outcome.error }) });
       if (outcome.ok && outcome.deviceAction) deviceActions.push(outcome.deviceAction);
       results.push({
@@ -82,7 +114,7 @@ export async function runAgent(history: MessageParam[], userTurn: MessageParam, 
     messages.push({ role: "user", content: results });
   }
 
-  return { reply: "That took too many steps. Try a smaller request.", toolCalls, deviceActions, stopReason: "max_steps" };
+  return { reply: "That took too many steps. Try a smaller request.", toolCalls, deviceActions, stopReason: "max_steps", toolResults };
 }
 
 function textOf(content: Anthropic.Beta.Messages.BetaContentBlock[]): string {

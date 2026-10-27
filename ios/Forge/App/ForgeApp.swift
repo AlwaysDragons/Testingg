@@ -10,6 +10,8 @@ struct ForgeApp: App {
             LifeRootView()
                 .environment(model)
         }
+        // Prepares the daily briefing shortly before its notification (Phase 6).
+        .backgroundTask(.appRefresh(BriefingService.taskId)) { await BriefingService.backgroundRefresh() }
     }
 }
 

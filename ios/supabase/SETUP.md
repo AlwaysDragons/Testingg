@@ -48,7 +48,7 @@ SQL Editor → New query → paste `migrations/20261027000004_ai_tools.sql` → 
 3. Optional secrets: `AI_MODEL` (default `claude-sonnet-5-5`), `AI_EFFORT` (`low` | `medium` | `high`, default `medium`; lower = faster and cheaper).
 
 ## 3. Deploy the function
-**Browser:** Edge Functions → **Deploy a new function → Via editor** → name it `ai-agent` (exactly). Create three files with the contents of `functions/ai-agent/index.ts`, `agent.ts` and `tools.ts` (skip `agent_test.ts`) → **Deploy**. Leave **Verify JWT** on.
+**Browser:** Edge Functions → **Deploy a new function → Via editor** → name it `ai-agent` (exactly). Create one file per `.ts` file in `functions/ai-agent/` (`index.ts`, `agent.ts`, `tools.ts`, `tasks.ts`; skip `agent_test.ts`) → **Deploy**. Leave **Verify JWT** on.
 
 **Or CLI:** `supabase functions deploy ai-agent --project-ref <your-ref>` from the `ios/` folder.
 
@@ -58,3 +58,8 @@ Edge Functions → `ai-agent` → **Logs** should show it booted. The first real
 Notes:
 - The function never uses the service_role key. It acts as you, so RLS protects every row.
 - Every chat message and reply is saved in `ai_messages`.
+
+# After later phases
+Some phases change the function or add SQL. Each phase's PROGRESS.md entry says what to re-run. In general:
+- New files in `migrations/` → run them in order in the SQL Editor.
+- Changed `functions/ai-agent/*.ts` → redeploy `ai-agent` (same steps as above; paste the updated files).

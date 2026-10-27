@@ -8,12 +8,14 @@ struct LifeRootView: View {
     @State private var store = LifeStore()
     @State private var chat = ChatStore()
     @State private var reminderSync = ReminderSync()
+    @State private var briefing = BriefingService()
 
     var body: some View {
         LifeTabs()
             .environment(store)
             .environment(chat)
             .environment(reminderSync)
+            .environment(briefing)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -28,6 +30,7 @@ private struct LifeTabs: View {
     @Environment(LifeStore.self) private var store
     @Environment(ChatStore.self) private var chat
     @Environment(ReminderSync.self) private var reminderSync
+    @Environment(BriefingService.self) private var briefing
     @Environment(\.scenePhase) private var phase
 
     var body: some View {
@@ -43,9 +46,17 @@ private struct LifeTabs: View {
             await store.connect(cloud.supabase)
             await chat.connect(cloud.supabase)
             await Self.remindersChanged(store, reminderSync)
+            await briefing.refreshIfNeeded(cloud.supabase)
+            await BriefingService.schedule(settings: store.settings)
         }
         .onChange(of: phase) { _, new in
-            if new == .active { Task { await Self.remindersChanged(store, reminderSync) } }
+            if new == .active {
+                Task {
+                    await Self.remindersChanged(store, reminderSync)
+                    await briefing.refreshIfNeeded(cloud.supabase)
+                }
+            }
+            if new == .background { Task { await BriefingService.schedule(settings: store.settings) } }
         }
         .sheet(isPresented: $chat.isPresented) { ChatSheet().environment(chat).environment(store) }
         .onAppear {
@@ -62,6 +73,7 @@ private struct LifeTabs: View {
             store.onTableChange = [{ tables in
                 if tables.contains("ai_messages") { Task { await chat.reload() } }
                 if tables.contains("reminders") || tables.contains("user_settings") { Task { await Self.remindersChanged(store, reminderSync) } }
+                if tables.contains("user_settings") { Task { await BriefingService.schedule(settings: store.settings) } }
             }]
         }
     }

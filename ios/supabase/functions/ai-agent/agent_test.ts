@@ -116,3 +116,27 @@ Deno.test("history keeps alternating roles and starts with the user", () => {
   ]);
   assertEquals(h, [{ role: "user", content: "a\n\nb" }, { role: "assistant", content: "c" }]);
 });
+
+Deno.test("task mode: finish tool validates and returns the structured result", async () => {
+  const { TASKS, toolsFor } = await import("./tasks.ts");
+  const task = TASKS.briefing;
+  assertEquals(toolsFor(task).map((t) => t.name).sort(), ["get_daily_briefing", "get_dashboard_summary", "list_reminders", "query_area"]);
+  const requests: any[] = [];
+  const replies = [
+    { stop_reason: "tool_use", content: [{ type: "tool_use", id: "a", name: "submit_briefing", input: { line: "" } }] }, // invalid: empty
+    { stop_reason: "tool_use", content: [{ type: "tool_use", id: "b", name: "submit_briefing", input: { line: "2 due today, 1 overdue." } }] },
+  ];
+  const result = await runAgent([], { role: "user", content: "brief" }, {
+    createMessage: (p) => { requests.push(structuredClone(p)); return Promise.resolve(replies.shift() as any); },
+    runTool: () => Promise.reject(new Error("not called")),
+    tools: toolsFor(task),
+    finish: task.finish,
+    system: "x",
+  });
+  assertEquals(result.result, { line: "2 due today, 1 overdue." });
+  assertEquals(result.stopReason, "finished");
+  assertEquals(requests[1].messages[2].content[0].is_error, true);
+  assert(requests[0].tools.some((t: any) => t.name === "submit_briefing"));
+  assert(!requests[0].tools.some((t: any) => t.name === "delete_item"));
+  assertEquals(requests[0].system, "x");
+});

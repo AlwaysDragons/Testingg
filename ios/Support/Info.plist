@@ -17,6 +17,14 @@
 	</dict>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Forge reads your sleep, HRV, resting heart rate, activity, body composition and nutrition to calculate readiness and optimize your training and recovery.</string>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.forge.briefing</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+	</array>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>Forge syncs the Reminders lists you choose with your dashboard, both ways.</string>
 	<key>NSHealthUpdateUsageDescription</key>

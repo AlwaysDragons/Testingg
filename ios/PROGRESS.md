@@ -34,7 +34,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 4. SwiftUI Home + Area detail + realtime
 - [x] 5. Chat wired to the agent
 - [x] 5.5. Reminders: EventKit two-way sync + local notifications + settings + AI reminder tools
-- [ ] 6. Daily briefing + push notifications
+- [x] 6. Daily briefing + push notifications
 - [ ] 7. Widgets, Live Activities, App Intents
 - [ ] 8. Quick capture + inbox + routing + Siri/Action Button/widget entry
 - [ ] 9. Check-ins + weekly review + daily journal
@@ -118,7 +118,15 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Info.plist / project.yml: added `NSRemindersFullAccessUsageDescription`.
   - Decision: reminders imported from Apple are stored as `reminders` rows (linked to an area by list), not as items; items can still point at a reminder via `item_id`.
 
+- Phase 6 (daily briefing + notifications):
+  - The Edge Function gained task modes (`tasks.ts`): `{ "mode": "briefing" }` runs with read-only tools and ends with a schema-validated `submit_briefing(line, detail)`. Task runs aren't saved to chat history. Later phases reuse this for capture routing, weekly review, journal, next action and insights.
+  - Home shows the AI line (tap for up to 3 detail lines), falling back to the local summary. It's fetched once per day (launch / foreground / pull to refresh), so it costs about one small Claude call a day.
+  - Notification: a local notification at your briefing time (Settings → Reminders and notifications → Daily briefing; notifications must be on). A background app refresh (`com.forge.briefing`) tries to prepare the briefing about 45 minutes before, so the notification shows the real line; otherwise it says "Your briefing is ready".
+  - Remote push (APNs) isn't built: it needs a paid developer account, an APNs key and a server sender. Local notifications cover the briefing, reminders, check-ins and nudges without it.
+  - Edits: `ForgeApp.swift` +2 lines (`.backgroundTask(.appRefresh(...))`); Info.plist / project.yml add `BGTaskSchedulerPermittedIdentifiers` and `UIBackgroundModes: fetch`.
+
 ## Manual steps I still need to do
+- Phase 6: redeploy `ai-agent` (new file `tasks.ts`). Set a briefing time in Settings → Reminders and notifications.
 - Phase 3: follow "Phase 3" in `supabase/SETUP.md`: run migration 4, add the `ANTHROPIC_API_KEY` secret (and set a spend limit), deploy `ai-agent`. Then rebuild with `xtool dev` to check the new Swift compiles.
 - Phase 2: in the Supabase SQL Editor, run `supabase/migrations/20261027000003_upsert_constraints.sql`.
 - Phase 2 (after rebuilding with `xtool dev`): Settings → Cloud sync → paste Project URL + anon key → enter email → enter the 6-digit code. Then turn off new sign-ups in Supabase.
