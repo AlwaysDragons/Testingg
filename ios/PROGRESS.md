@@ -207,6 +207,14 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - Not verified: anything on a real device (the HealthKit / EventKit / notification / Live Activity / Watch behaviour, the actual look), and live Claude calls. Your first `xtool dev` run and a quick tap-through are the real test.
 
 ## Manual steps I still need to do
+**Start here (about 20 minutes):**
+1. Supabase → SQL Editor: run every file in `supabase/migrations/` you haven't run yet, in filename order (`…03` through `…11`; 01 and 02 are from Phase 1).
+2. Supabase → Edge Functions: add the `ANTHROPIC_API_KEY` secret (set a spend limit in the Anthropic Console), then deploy `ai-agent` with all its `.ts` files except `agent_test.ts` (`index`, `agent`, `tools`, `tasks`).
+3. Check out `phase-16-watch-focus-faceid` (it contains every phase) and run `xtool dev`.
+4. In the app: Settings → Cloud sync (sign in), then Settings → Features (turn on what you want) and Settings → Reminders and notifications.
+5. Optional: Xcode route for widgets, Live Activities and the Watch app (see Phase 7 / 16 below).
+
+Per phase (details):
 - Phase 16 (Xcode route): set your team on the Forge, ForgeWidgets and ForgeWatch targets; change `com.yourname.*` bundle ids and the App Group to yours.
 - Phase 15: run `migrations/20261027000011_life_admin.sql`, redeploy `ai-agent`.
 - Phase 14: run `migrations/20261027000010_insights_search.sql`, redeploy `ai-agent`.
