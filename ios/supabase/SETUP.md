@@ -34,3 +34,27 @@ Keep the URL and anon key handy. In Phase 2 they go into a gitignored `Support/S
 ## Notes
 - The built-in email sender is rate-limited (a few emails per hour). That's fine for a single user.
 - To start over: **Project Settings → General → Delete project**, then repeat.
+
+# Phase 3: AI agent (Edge Function)
+
+About 10 minutes.
+
+## 1. Run the SQL
+SQL Editor → New query → paste `migrations/20261027000004_ai_tools.sql` → **Run**. (Run `..._03_upsert_constraints.sql` first if you haven't yet.)
+
+## 2. Anthropic API key
+1. **console.anthropic.com** → API Keys → **Create key**. Also set a monthly spend limit under **Billing → Limits**.
+2. Supabase: **Edge Functions → Secrets** → add `ANTHROPIC_API_KEY` = your key. Never put it in the app or in git.
+3. Optional secrets: `AI_MODEL` (default `claude-sonnet-5-5`), `AI_EFFORT` (`low` | `medium` | `high`, default `medium`; lower = faster and cheaper).
+
+## 3. Deploy the function
+**Browser:** Edge Functions → **Deploy a new function → Via editor** → name it `ai-agent` (exactly). Create three files with the contents of `functions/ai-agent/index.ts`, `agent.ts` and `tools.ts` (skip `agent_test.ts`) → **Deploy**. Leave **Verify JWT** on.
+
+**Or CLI:** `supabase functions deploy ai-agent --project-ref <your-ref>` from the `ios/` folder.
+
+## 4. Check it
+Edge Functions → `ai-agent` → **Logs** should show it booted. The first real test is the chat in Phase 5 (it needs your signed-in session).
+
+Notes:
+- The function never uses the service_role key. It acts as you, so RLS protects every row.
+- Every chat message and reply is saved in `ai_messages`.

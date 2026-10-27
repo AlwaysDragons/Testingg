@@ -90,18 +90,24 @@ actor SupabaseClient {
         return try await send(method, "rest/v1/\(table)", query: query, body: body, auth: true, prefer: prefer)
     }
 
+    /// Calls the Edge Function `/functions/v1/<name>` as the signed-in user.
+    func invoke(_ name: String, body: Data, timeout: TimeInterval = 90) async throws -> Data {
+        try await refreshIfNeeded()
+        return try await send("POST", "functions/v1/\(name)", body: body, auth: true, timeout: timeout)
+    }
+
     func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         try Self.decoder.decode(type, from: data)
     }
 
     // MARK: Transport
 
-    private func send(_ method: String, _ path: String, query: [URLQueryItem] = [], body: Data?, auth: Bool, prefer: String? = nil) async throws -> Data {
+    private func send(_ method: String, _ path: String, query: [URLQueryItem] = [], body: Data?, auth: Bool, prefer: String? = nil, timeout: TimeInterval = 30) async throws -> Data {
         var comps = URLComponents(url: baseURL.appendingPathComponent(path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { comps.queryItems = query }
         var req = URLRequest(url: comps.url!)
         req.httpMethod = method
-        req.timeoutInterval = 30
+        req.timeoutInterval = timeout
         req.setValue(anonKey, forHTTPHeaderField: "apikey")
         req.setValue("Bearer \(auth ? (session?.accessToken ?? anonKey) : anonKey)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
