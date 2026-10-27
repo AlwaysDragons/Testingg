@@ -65,7 +65,7 @@ final class CalendarService {
 
     /// Writes approved time blocks as events. Returns how many were added.
     @discardableResult
-    func add(blocks: [DayPlan.Block]) -> Int {
+    func add(blocks: [TimeBlockPlan.Block]) -> Int {
         guard authorized else { return 0 }
         let target = blockCalendarId.flatMap { eventStore.calendar(withIdentifier: $0) } ?? eventStore.defaultCalendarForNewEvents
         var added = 0
@@ -86,7 +86,7 @@ final class CalendarService {
 }
 
 /// A drafted day plan (time blocks), returned by the `plan_day` task.
-struct DayPlan: Codable, Equatable, Sendable {
+struct TimeBlockPlan: Codable, Equatable, Sendable {
     struct Block: Codable, Equatable, Sendable, Hashable { var title: String; var start: String; var end: String; var itemId: String? }
     var blocks: [Block]
     var note: String?
