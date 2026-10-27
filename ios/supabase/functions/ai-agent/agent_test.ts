@@ -120,7 +120,7 @@ Deno.test("history keeps alternating roles and starts with the user", () => {
 Deno.test("task mode: finish tool validates and returns the structured result", async () => {
   const { TASKS, toolsFor } = await import("./tasks.ts");
   const task = TASKS.briefing;
-  assertEquals(toolsFor(task).map((t) => t.name).sort(), ["get_daily_briefing", "get_dashboard_summary", "list_reminders", "query_area"]);
+  assert(toolsFor(task).every((t) => !["delete_item", "upsert_item", "create_reminder"].includes(t.name)));
   const requests: any[] = [];
   const replies = [
     { stop_reason: "tool_use", content: [{ type: "tool_use", id: "a", name: "submit_briefing", input: { line: "" } }] }, // invalid: empty

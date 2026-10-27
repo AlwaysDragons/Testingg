@@ -5,10 +5,12 @@ import SwiftUI
 struct TodayView: View {
     @Environment(LifeStore.self) private var store
     @State private var editingReminder: Reminder?
+    @Environment(EverydayStore.self) private var everyday
 
     var body: some View {
         NavigationStack {
             List {
+                everydaySection
                 let dueReminders = store.reminderGroups().today
                 Section {
                     ForEach(dueReminders.prefix(6)) { r in ReminderRow(reminder: r) { editingReminder = r } }
@@ -56,6 +58,30 @@ struct TodayView: View {
             .navigationTitle("Today")
             .refreshable { await store.reloadAll() }
             .sheet(item: $editingReminder) { ReminderEditor(reminder: $0) }
+        }
+    }
+
+    /// Check-in, weekly review and journal, each only when switched on in Features.
+    @ViewBuilder
+    private var everydaySection: some View {
+        let type = EverydayStore.currentType()
+        let showCheckin = store.isEnabled(.checkins) && everyday.checkin(type: type) == nil
+        if showCheckin || store.isEnabled(.weeklyReview) || store.isEnabled(.journal) {
+            Section {
+                if showCheckin {
+                    Button { everyday.showCheckin = true } label: {
+                        ListRow(title: type == "morning" ? "Morning check-in" : "Evening check-in", symbol: "sun.horizon")
+                    }
+                    .buttonStyle(.plain)
+                }
+                if store.isEnabled(.weeklyReview) {
+                    NavigationLink { WeeklyReviewView() } label: { ListRow(title: "Weekly review", symbol: "calendar") }
+                }
+                if store.isEnabled(.journal) {
+                    NavigationLink { JournalView() } label: { ListRow(title: "Journal", symbol: "book") }
+                }
+            }
+            .listRowBackground(DS.Palette.surface)
         }
     }
 }

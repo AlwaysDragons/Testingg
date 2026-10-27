@@ -194,6 +194,30 @@ export const TOOLS = {
     }),
     toRpc: (i) => ({ fn: "ai_capture", args: { p_text: i.text, p_source: i.source } }),
   }),
+
+  submit_checkin: tool({
+    description: "Save a morning or evening check-in (mood and energy 1-5). Submitting again the same day updates it.",
+    schema: z.strictObject({
+      type: z.enum(["morning", "evening"]),
+      mood: z.number().int().min(1).max(5).optional(),
+      energy: z.number().int().min(1).max(5).optional(),
+      wins: z.string().max(1000).optional().describe("Evening: wins. Morning: top priority."),
+      notes: z.string().max(2000).optional(),
+    }),
+    toRpc: (i) => ({ fn: "ai_submit_checkin", args: { p: i } }),
+  }),
+
+  get_weekly_review: tool({
+    description: "Facts for a week (default: this week): per area completed and missed items, logs, metric stats, habit days; workouts; check-in averages.",
+    schema: z.strictObject({ week_start: z.iso.date().optional().describe("Monday, YYYY-MM-DD") }),
+    toRpc: (i) => ({ fn: "ai_weekly_review", args: { p_week_start: i.week_start ?? null } }),
+  }),
+
+  get_day_digest: tool({
+    description: "Everything from one day (default today): completed items, logs, metrics, health, workouts, check-ins.",
+    schema: z.strictObject({ date: z.iso.date().optional() }),
+    toRpc: (i) => ({ fn: "ai_day_digest", args: { p_date: i.date ?? null } }),
+  }),
 } satisfies Record<string, ToolSpec<any>>;
 
 export type ToolName = keyof typeof TOOLS;

@@ -37,7 +37,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 6. Daily briefing + push notifications
 - [x] 7. Widgets, Live Activities, App Intents
 - [x] 8. Quick capture + inbox + routing + Siri/Action Button/widget entry
-- [ ] 9. Check-ins + weekly review + daily journal
+- [x] 9. Check-ins + weekly review + daily journal
 - [ ] 10. Calendar integration + unified Today timeline
 - [ ] 11. Habits/streaks + focus timer + "What should I do now?" + goals with milestones
 - [ ] 12. Health features on existing HealthKit/Hevy code (PRs, recovery, skip-or-push, nutrition, measurements, photos)
@@ -140,7 +140,16 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Info.plist / project.yml: speech + microphone usage strings, the `forge://` URL scheme.
   - Verified: 7 SQL checks for capture/undo (including cross-user), Deno tests for the created-rows tracking and the finish schema.
 
+- Phase 9 (check-ins, weekly review, journal; each behind its own Feature toggle):
+  - Migration 6 adds `user_settings.checkin_morning_time` / `checkin_evening_time` and SQL functions: `ai_submit_checkin` (one per day and type; a second submit merges), `ai_weekly_review` (per-area completed and missed items, logs, metric stats, habit days, workouts, check-in averages: every number the AI quotes comes from here), `ai_day_digest`, and `ai_save_journal` (never overwrites an entry you edited yourself).
+  - Agent tools: `submit_checkin`, `get_weekly_review`, `get_day_digest`. Task modes: `weekly_review` (structured: summary, wins, misses, focus, up to 5 suggestions) and `journal`.
+  - Check-in sheet: mood and energy 1-5 (one tap each), plus top priority (morning) or wins (evening). Daily notifications at your check-in times; tapping one opens the sheet.
+  - Weekly review (Today → Weekly review): generated on demand, cached per week, with a Sunday 18:00 notification. Tap a suggestion (or "Add all") to add it as an item due next Monday.
+  - Journal (Today → Journal): write today's entry with one tap; yesterday's is written automatically the first time you open the journal. Tap an entry to edit it (saved as yours, so the AI won't change it).
+  - Verified: 16 SQL checks, Deno tests.
+
 ## Manual steps I still need to do
+- Phase 9: run `migrations/20261027000006_checkins_review_journal.sql`, redeploy `ai-agent`, turn on the features you want and set check-in times.
 - Phase 8: run `migrations/20261027000005_capture.sql`, redeploy `ai-agent`, turn on Settings → Features → Quick capture.
 - Phase 7 (optional, Xcode route): `brew install xcodegen && xcodegen` in `ios/`, open Forge.xcodeproj, set your team and the App Group on both targets, run.
 - Phase 6: redeploy `ai-agent` (new file `tasks.ts`). Set a briefing time in Settings → Reminders and notifications.

@@ -5,7 +5,9 @@ import { z } from "npm:zod@4.6.7";
 import type { FinishTool } from "./agent.ts";
 import { TOOL_DEFINITIONS, type ToolName } from "./tools.ts";
 
-export const READ_ONLY_TOOLS: ToolName[] = ["query_area", "get_dashboard_summary", "get_daily_briefing", "list_reminders"];
+export const READ_ONLY_TOOLS: ToolName[] = [
+  "query_area", "get_dashboard_summary", "get_daily_briefing", "list_reminders", "get_weekly_review", "get_day_digest",
+];
 
 // deno-lint-ignore no-explicit-any
 type Db = any;
@@ -108,6 +110,43 @@ TASKS.capture = {
       }).eq("id", id);
     }
     return { ...r, sorted, area_id: areaId, created };
+  },
+};
+
+TASKS.weekly_review = {
+  instructions: `Task: write the user's weekly review. Call get_weekly_review (pass week_start if given), then call submit_review.
+- summary: 2 sentences max on how the week went.
+- wins / misses: short phrases, only from completed / missed items, habit days and metrics in the tool result. Up to 5 each.
+- focus: one sentence suggesting next week's focus.
+- suggestions: up to 5 concrete items for next week, each with an existing area name and a short title. Only suggest; don't create anything.
+- Never invent numbers; quote only what the tool returned.`,
+  prompt: (p) => `Weekly review${typeof p.week_start === "string" ? ` for the week starting ${p.week_start}` : ""}.`,
+  tools: READ_ONLY_TOOLS,
+  finish: finishTool("submit_review", "Return the weekly review.", z.strictObject({
+    summary: z.string().trim().min(1).max(400),
+    wins: z.array(z.string().max(120)).max(5),
+    misses: z.array(z.string().max(120)).max(5),
+    focus: z.string().trim().max(240),
+    suggestions: z.array(z.strictObject({ area: z.string().max(60), title: z.string().trim().min(1).max(120) })).max(5),
+  })),
+  effort: "medium",
+};
+
+TASKS.journal = {
+  instructions: `Task: write the user's journal entry for one day. Call get_day_digest for that date, then call submit_journal.
+- content: first person, past tense, 3-6 short sentences, plain and warm, no headings or emoji. Mention what got done, workouts, how they felt (check-ins) and anything logged. Use only facts from the digest; if the day is empty, say it was a quiet day in one sentence.`,
+  prompt: (p) => `Journal for ${typeof p.date === "string" ? p.date : "today"}.`,
+  tools: ["get_day_digest"],
+  finish: finishTool("submit_journal", "Return the journal entry.", z.strictObject({
+    content: z.string().trim().min(1).max(2000),
+  })),
+  effort: "low",
+  after: async ({ result, params, db }) => {
+    // deno-lint-ignore no-explicit-any
+    const r = result as any;
+    const date = typeof params.date === "string" ? params.date : new Date().toISOString().slice(0, 10);
+    const { data } = await db.rpc("ai_save_journal", { p_date: date, p_content: r.content });
+    return { content: r.content, saved: data?.action === "saved" };
   },
 };
 

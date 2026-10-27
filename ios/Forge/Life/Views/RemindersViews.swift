@@ -230,6 +230,10 @@ struct RemindersSettingsView: View {
                 timeRow("Quiet hours start", key: "quiet_hours_start", value: store.settings?.quietHoursStart, fallback: "22:00")
                 timeRow("Quiet hours end", key: "quiet_hours_end", value: store.settings?.quietHoursEnd, fallback: "07:00")
                 timeRow("Daily briefing", key: "briefing_time", value: store.settings?.briefingTime, fallback: "07:30")
+                if store.isEnabled(.checkins) {
+                    timeRow("Morning check-in", key: "checkin_morning_time", value: store.settings?.checkinMorningTime, fallback: "08:00")
+                    timeRow("Evening check-in", key: "checkin_evening_time", value: store.settings?.checkinEveningTime, fallback: "21:00")
+                }
             } header: { Text("Notifications") } footer: {
                 Text("Alerts that fall in quiet hours arrive when they end. Non-essential notifications stay off until you turn them on.")
             }

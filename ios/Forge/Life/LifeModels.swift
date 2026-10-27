@@ -86,6 +86,8 @@ struct UserSettings: Codable, Hashable, Sendable {
     var briefingTime: String?
     var timezone: String
     var features: JSONValue
+    var checkinMorningTime: String? = nil
+    var checkinEveningTime: String? = nil
 }
 
 /// Features beyond the core start hidden; each one is switched on in Settings (stored in `user_settings.features`).

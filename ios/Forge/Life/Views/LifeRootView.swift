@@ -5,12 +5,14 @@ import SwiftUI
 struct LifeRootView: View {
     @Environment(AppModel.self) private var model
     @Environment(CaptureStore.self) private var captures
+    @Environment(EverydayStore.self) private var everyday
     @Environment(\.scenePhase) private var phase
     @State private var store = LifeStore()
     @State private var chat = ChatStore()
     @State private var reminderSync = ReminderSync()
     @State private var briefing = BriefingService()
     @State private var captures = CaptureStore()
+    @State private var everyday = EverydayStore()
 
     var body: some View {
         LifeTabs()
@@ -19,6 +21,7 @@ struct LifeRootView: View {
             .environment(reminderSync)
             .environment(briefing)
             .environment(captures)
+            .environment(everyday)
             // Same launch / foreground refresh the existing RootView does.
             .task { if model.hasHevy { await model.refreshAll() } }
             .onChange(of: phase) { _, new in
@@ -40,6 +43,7 @@ private struct LifeTabs: View {
     var body: some View {
         @Bindable var chat = chat
         @Bindable var captures = captures
+        @Bindable var everyday = everyday
         TabView {
             HomeView().tabItem { Label("Home", systemImage: "square.grid.2x2") }
             TodayView().tabItem { Label("Today", systemImage: "sun.max") }
@@ -51,6 +55,8 @@ private struct LifeTabs: View {
             await store.connect(cloud.supabase)
             await chat.connect(cloud.supabase)
             await captures.connect(cloud.supabase)
+            await everyday.connect(cloud.supabase)
+            await Self.scheduleEveryday(store)
             await Self.remindersChanged(store, reminderSync)
             await briefing.refreshIfNeeded(cloud.supabase)
             await BriefingService.schedule(settings: store.settings)
@@ -66,6 +72,10 @@ private struct LifeTabs: View {
         }
         .sheet(isPresented: $chat.isPresented) { ChatSheet().environment(chat).environment(store) }
         .sheet(isPresented: $captures.isPresented) { CaptureSheet().environment(captures).environment(store) }
+        .sheet(isPresented: $everyday.showCheckin) { CheckinSheet().environment(everyday) }
+        .sheet(isPresented: $everyday.showReview) {
+            NavigationStack { WeeklyReviewView() }.environment(everyday).environment(store)
+        }
         // forge://capture (widgets, Action Button), forge://home
         .onOpenURL { url in
             guard url.scheme == "forge" else { return }
@@ -80,7 +90,11 @@ private struct LifeTabs: View {
         }
         .onAppear {
             if IntentEvents.pendingCapture { IntentEvents.pendingCapture = false; captures.open() }
-            let store = store, reminderSync = reminderSync, chat = chat, model = model, briefing = briefing
+            let store = store, reminderSync = reminderSync, chat = chat, model = model, briefing = briefing, everyday = everyday
+            NotificationScheduler.shared.tapHandlers = [
+                "checkin.": { _ in everyday.showCheckin = true },
+                "review.": { _ in everyday.showReview = true },
+            ]
             // Widgets read a snapshot the app writes after every reload.
             store.onReloaded = [{ WidgetBridge.update(store: store, model: model, briefing: briefing.today?.text) }]
             NotificationScheduler.shared.install()
@@ -97,13 +111,24 @@ private struct LifeTabs: View {
                 if tables.contains("ai_messages") { Task { await chat.reload() } }
                 if tables.contains("captures") { Task { await captures.reload() } }
                 if tables.contains("reminders") || tables.contains("user_settings") { Task { await Self.remindersChanged(store, reminderSync) } }
-                if tables.contains("user_settings") { Task { await BriefingService.schedule(settings: store.settings) } }
+                if tables.contains("user_settings") {
+                    Task {
+                        await BriefingService.schedule(settings: store.settings)
+                        await Self.scheduleEveryday(store)
+                    }
+                }
+                if tables.contains("checkins") || tables.contains("journal_entries") { Task { await everyday.reload() } }
             }]
         }
     }
 }
 
 extension LifeTabs {
+    @MainActor
+    static func scheduleEveryday(_ store: LifeStore) async {
+        await EverydayStore.scheduleNotifications(settings: store.settings, checkins: store.isEnabled(.checkins), review: store.isEnabled(.weeklyReview))
+    }
+
     /// Sync Apple Reminders and reschedule local notifications.
     @MainActor
     static func remindersChanged(_ store: LifeStore, _ reminderSync: ReminderSync) async {
