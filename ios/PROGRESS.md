@@ -28,7 +28,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 
 - [x] 0. Inspect codebase, summarize Hevy + HealthKit, list protected files
 - [x] 1. Supabase schema + RLS (SQL + setup steps)
-- [ ] 2. Wrap Hevy and HealthKit as Integration adapters + sync into Supabase
+- [~] 2. Wrap Hevy and HealthKit as Integration adapters + sync into Supabase (code done; waiting on approval of 2 hook edits in protected files)
 - [ ] 3. Edge Function + tool calling
 - [ ] 3.5. Design system + component library (tokens, Card, StatView, ProgressRing, SectionHeader, EmptyState, ListRow)
 - [ ] 4. SwiftUI Home + Area detail + realtime
@@ -67,9 +67,24 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - Storage: private `photos` + `documents` buckets; files under `<user_id>/...`; per-user policies; signed URLs only.
 - Verified locally on Postgres 16 with Supabase auth/storage stubs: 13 checks passed (RLS isolation, cross-user FK block, anon blocked, upsert dedupe, CHECKs, updated_at trigger, storage isolation, delete behavior).
 
+- Phase 2 (integrations):
+  - No Supabase SDK. A small hand-written client (`Cloud/SupabaseClient.swift`: email-code auth + PostgREST) means `Package.swift` / `project.yml` are untouched. Realtime (Phase 4) may add the SDK; that would be a dependency change, so I'll ask first.
+  - Adapters read the data the existing code already fetched (`AppModel.workouts`, `AppModel.health`). They never call Hevy or HealthKit themselves, so there are no duplicate API calls and the existing code is unchanged.
+  - Areas "Gym" (kind gym) and "Health" (kind custom) are created automatically on first sync, pinned.
+  - Incremental sync: the cursor is stored in `integrations.config.cursor`. Hevy pushes workouts edited after the cursor (sets are replaced per workout). HealthKit re-pushes the last 3 days each time, because today's totals keep changing.
+  - Metric names: steps, active_energy, resting_hr, hrv, sleep_hours, bodyweight (kg), body_fat (%), vo2_max, protein, calories_in. external_id is `<name>:<yyyy-MM-dd>`.
+  - Sample/demo data is never uploaded.
+  - Supabase URL, anon key and session are stored in the Keychain (via the existing helper). The app refuses service_role / `sb_secret_` keys.
+  - Migration 3 swaps the partial unique indexes for plain unique constraints, because PostgREST `on_conflict` can't target partial indexes. Behavior is the same, since NULLs don't conflict.
+  - Verified: type-check of all non-UI code; the adapters' exact JSON was upserted into Postgres twice with identical counts (10 workouts / 190 sets / 346 metrics), so there are no duplicates; the secret-key guard was tested.
+
 ## Manual steps I still need to do
+- Phase 2: in the Supabase SQL Editor, run `supabase/migrations/20261027000003_upsert_constraints.sql`.
+- Phase 2 (after the hook edits are approved and the app is rebuilt with `xtool dev`): Settings → Cloud sync → paste Project URL + anon key → enter email → enter the 6-digit code. Then turn off new sign-ups in Supabase.
 - Phase 1: follow `supabase/SETUP.md`: create the project, run both SQL files, set the email-code template, and keep the Project URL + anon key ready for Phase 2. After your first sign-in, turn off new sign-ups.
 
 ## Known issues
+- Workouts deleted in Hevy are not removed from Supabase: the existing Hevy client (protected) doesn't report deletions. A later fix could compare ids during a full resync.
+- The SwiftUI files (`CloudSettingsView`, `CloudSyncHook`) can't be compiled in the cloud session. The first real check is your `xtool dev` build.
 - Phase 7 / 16 (widgets, Live Activities, Watch) need app extensions; a free Apple ID limits App IDs and xtool extension support may be partial. These may require a paid developer account.
 - The existing `ClaudeClient` keeps the API key on-device (pre-existing; protected). New AI features use the server-side Edge Function only.
