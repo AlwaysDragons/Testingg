@@ -3,7 +3,7 @@
 name: iOS build
 on:
   push:
-    paths: ["ios/Forge/**", "ios/ForgeWidgets/**", "ios/Package.swift", "ios/project.yml", ".github/workflows/ios-build.yml"]
+    paths: ["ios/Forge/**", "ios/ForgeWidgets/**", "ios/ForgeWatch/**", "ios/Package.swift", "ios/project.yml", "ios/project-phone.yml", ".github/workflows/ios-build.yml"]
   workflow_dispatch:
 jobs:
   build:
@@ -29,6 +29,22 @@ jobs:
         working-directory: ios
         run: brew install xcodegen && xcodegen generate
       - name: Build app + widgets for iOS Simulator
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild build -project Forge.xcodeproj -scheme Forge -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO 2>&1 \
+            | tee build.log | grep -E "error:|BUILD (SUCCEEDED|FAILED)" || true
+          grep -q "BUILD SUCCEEDED" build.log
+  # The phone-only project (free Apple ID route: no widgets, Live Activities or Watch app).
+  phone-project:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate phone-only project
+        working-directory: ios
+        run: brew install xcodegen && xcodegen generate --spec project-phone.yml
+      - name: Build app for iOS Simulator
         working-directory: ios
         run: |
           set -o pipefail

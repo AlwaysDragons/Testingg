@@ -1,0 +1,6 @@
+# Minimal Supabase CLI config so `supabase db push` and `supabase functions deploy` work from ios/.
+# Local-dev settings use the CLI defaults. No secrets here.
+project_id = "forge"
+
+[functions.ai-agent]
+verify_jwt = true
