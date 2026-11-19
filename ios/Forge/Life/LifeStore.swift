@@ -74,8 +74,8 @@ final class LifeStore {
     }
 
     /// Batches realtime events so a burst of changes causes one reload per table.
-    private func scheduleReload(_ table: String) {
-        pendingReload.insert(table)
+    func scheduleReload(_ table: String) {
+        if table == RealtimeClient.everything { pendingReload.formUnion(Self.allTables) } else { pendingReload.insert(table) }
         reloadTask?.cancel()
         reloadTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: 300_000_000)
@@ -85,6 +85,10 @@ final class LifeStore {
             await self.reload(tables)
         }
     }
+
+    /// Every table the app shows (core ones here, the rest reloaded by `onTableChange` hooks).
+    static let allTables: Set<String> = ["areas", "items", "logs", "metrics", "reminders", "user_settings",
+                                         "ai_messages", "captures", "checkins", "journal_entries", "insights"]
 
     func reload(_ tables: Set<String>) async {
         guard let repo else { return }

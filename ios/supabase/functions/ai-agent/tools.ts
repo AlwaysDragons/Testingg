@@ -159,7 +159,7 @@ export const TOOLS = {
   }),
 
   complete_reminder: tool({
-    description: "Mark a reminder done.",
+    description: "Mark a reminder done. A repeating reminder moves to its next occurrence instead (the result says when).",
     schema: z.strictObject({ id: uuid }),
     toRpc: (i) => ({ fn: "ai_complete_reminder", args: { p_id: i.id } }),
     deviceAction: reminderAction,

@@ -21,6 +21,11 @@ struct LifeRootView: View {
     @State private var admin = AdminStore()
     @State private var areaLock = AreaLock()
 
+    init() {
+        // The delegate must be set at launch, or a notification action that launched the app is lost.
+        NotificationScheduler.shared.install()
+    }
+
     var body: some View {
         LifeTabs()
             .environment(store)
@@ -155,6 +160,7 @@ private struct LifeTabs: View {
                 WidgetBridge.update(store: store, model: model, briefing: briefing.today?.text)
                 FocusAreas.saveCatalog(store.areas)
                 WatchBridge.shared.send(WidgetSnapshot.load())
+                Task { await NotificationScheduler.shared.flushPending() }
             }]
             NotificationScheduler.shared.install()
             WatchBridge.shared.activate()

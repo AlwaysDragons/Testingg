@@ -157,8 +157,12 @@ final class CloudSync {
             auth = .notConfigured
             return
         }
-        client = SupabaseClient(baseURL: url, anonKey: anon, session: session) { s in
-            Task { @MainActor in CloudSync.saveSession(s) }
+        client = SupabaseClient(baseURL: url, anonKey: anon, session: session) { [weak self] s in
+            Task { @MainActor in
+                CloudSync.saveSession(s)
+                // Refresh token expired or revoked: show the sign-in screen instead of failing every request.
+                if s == nil, self?.isSignedIn == true { self?.auth = .signedOut }
+            }
         }
         if let s = session { auth = .signedIn(email: s.email ?? "") } else { auth = .signedOut }
     }

@@ -11,7 +11,10 @@ actor RealtimeClient {
     private var loops: [Task<Void, Never>] = []
     private var running = false
     private var attempt = 0
+    private var joinedBefore = false
     static let topic = "realtime:forge-life"
+    /// Passed to `onChange` after a reconnect: reload every table.
+    static let everything = "*"
 
     init(client: SupabaseClient, onChange: @escaping @Sendable (String) -> Void) {
         self.client = client
@@ -48,6 +51,9 @@ actor RealtimeClient {
             task.resume()
             try await send(Self.joinMessage(token: token, ref: nextRef()))
             attempt = 0
+            // Changes made while the socket was down (app in background, network loss) sent no events.
+            if joinedBefore { onChange(Self.everything) }
+            joinedBefore = true
             loops = [
                 Task { [weak self] in await self?.receiveLoop() },
                 Task { [weak self] in await self?.heartbeatLoop() },

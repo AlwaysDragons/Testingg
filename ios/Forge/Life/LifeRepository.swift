@@ -13,23 +13,25 @@ struct LifeRepository: Sendable {
     /// Open items plus items completed in the last 60 days.
     func items(now: Date = Date()) async throws -> [Item] {
         let since = LifeCoding.string(now.addingTimeInterval(-60 * 86_400))
-        return try await get("items", ["select": "*", "or": "(status.neq.done,completed_at.gte.\"\(since)\")", "order": "due_date.asc.nullslast,created_at.asc", "limit": "2000"])
+        return try await getAll("items", ["select": "*", "or": "(status.neq.done,completed_at.gte.\"\(since)\")", "order": "due_date.asc.nullslast,created_at.asc,id.asc"], max: 5000)
     }
 
     func logs(days: Int = 120, now: Date = Date()) async throws -> [LogEntry] {
         let since = LifeCoding.string(now.addingTimeInterval(-Double(days) * 86_400))
-        return try await get("logs", ["select": "id,area_id,item_id,note,data,logged_at", "logged_at": "gte.\(since)", "order": "logged_at.desc", "limit": "3000"])
+        return try await getAll("logs", ["select": "id,area_id,item_id,note,data,logged_at", "logged_at": "gte.\(since)", "order": "logged_at.desc,id.asc"], max: 5000)
     }
 
     func metrics(days: Int = 400, now: Date = Date()) async throws -> [Metric] {
         let since = LifeCoding.string(now.addingTimeInterval(-Double(days) * 86_400))
-        return try await get("metrics", ["select": "id,area_id,name,value,unit,recorded_at,data,source", "recorded_at": "gte.\(since)", "order": "recorded_at.asc", "limit": "10000"])
+        // Newest first so a cap never drops recent values; callers get them oldest first.
+        let rows: [Metric] = try await getAll("metrics", ["select": "id,area_id,name,value,unit,recorded_at,data,source", "recorded_at": "gte.\(since)", "order": "recorded_at.desc,id.asc"], max: 20000)
+        return rows.reversed()
     }
 
     /// Open reminders plus those completed in the last 7 days.
     func reminders(now: Date = Date()) async throws -> [Reminder] {
         let since = LifeCoding.string(now.addingTimeInterval(-7 * 86_400))
-        return try await get("reminders", ["select": "*", "or": "(completed_at.is.null,completed_at.gte.\"\(since)\")", "order": "remind_at.asc.nullslast"])
+        return try await getAll("reminders", ["select": "*", "or": "(completed_at.is.null,completed_at.gte.\"\(since)\")", "order": "remind_at.asc.nullslast,id.asc"], max: 5000)
     }
 
     func settings() async throws -> UserSettings? {
@@ -104,6 +106,22 @@ struct LifeRepository: Sendable {
     func get<T: Decodable>(_ table: String, _ params: KeyValuePairs<String, String>) async throws -> T {
         let data = try await client.rest("GET", table, query: params.map { URLQueryItem(name: $0.key, value: $0.value) })
         return try LifeCoding.decoder.decode(T.self, from: data)
+    }
+
+    /// Reads every matching row in pages. Supabase caps one response at 1000 rows (API "Max rows"),
+    /// so a single request would silently drop the rest. `params` must include a total "order".
+    func getAll<T: Decodable>(_ table: String, _ params: KeyValuePairs<String, String>, max: Int, page: Int = 1000) async throws -> [T] {
+        var out: [T] = []
+        while out.count < max {
+            var query = params.map { URLQueryItem(name: $0.key, value: $0.value) }
+            query.append(.init(name: "limit", value: String(page)))
+            query.append(.init(name: "offset", value: String(out.count)))
+            let data = try await client.rest("GET", table, query: query)
+            let rows = try LifeCoding.decoder.decode([T].self, from: data)
+            out += rows
+            if rows.count < page { break }
+        }
+        return out
     }
 
     func insert<T: Decodable>(_ table: String, _ row: Row) async throws -> T {

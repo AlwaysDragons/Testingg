@@ -10,7 +10,19 @@ final class NotificationScheduler: NSObject, UNUserNotificationCenterDelegate {
     private let center = UNUserNotificationCenter.current()
     weak var store: LifeStore?
     /// Lets other features handle taps on their own notifications (e.g. "checkin.morning").
-    var tapHandlers: [String: @MainActor (String) -> Void] = [:]
+    var tapHandlers: [String: @MainActor (String) -> Void] = [:] {
+        didSet {  // taps that launched the app arrive before the handlers are registered
+            let taps = pendingTaps
+            pendingTaps = []
+            taps.forEach(handleTap)
+        }
+    }
+    private var pendingTaps: [String] = []
+
+    private func handleTap(_ requestId: String) {
+        if let handler = tapHandlers.first(where: { requestId.hasPrefix($0.key) })?.value { handler(requestId) }
+        else if tapHandlers.isEmpty { pendingTaps.append(requestId) }
+    }
 
     static let reminderCategory = "reminder"
     private static let prefix = "reminder."
@@ -95,14 +107,25 @@ final class NotificationScheduler: NSObject, UNUserNotificationCenterDelegate {
         await MainActor.run {
             if let id, let uuid = UUID(uuidString: id) {
                 Task { await self.handle(action: action, reminder: uuid) }
-            } else if let handler = self.tapHandlers.first(where: { requestId.hasPrefix($0.key) })?.value {
-                handler(requestId)
+            } else {
+                self.handleTap(requestId)
             }
         }
     }
 
+    /// Actions tapped before the dashboard loaded (the app was launched by the notification).
+    private var pendingActions: [(action: String, id: UUID)] = []
+
+    /// Runs actions that arrived before the first load. Called after every reload.
+    func flushPending() async {
+        let actions = pendingActions
+        pendingActions = []
+        for a in actions { await handle(action: a.action, reminder: a.id) }
+    }
+
     private func handle(action: String, reminder id: UUID) async {
-        guard let store, let r = store.reminders.first(where: { $0.id == id }) else { return }
+        guard let store, store.hasLoaded else { pendingActions.append((action, id)); return }
+        guard let r = store.reminders.first(where: { $0.id == id }) else { return }
         switch action {
         case "done": await store.completeReminder(r)
         case "snooze10": await store.snooze(r, until: Date().addingTimeInterval(10 * 60))

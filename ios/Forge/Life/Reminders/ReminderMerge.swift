@@ -33,6 +33,7 @@ enum ReminderMerge {
     ///   - now: for the 7-day import window of completed reminders.
     static func plan(rows: [Reminder], apple: [AppleReminder], now: Date = Date()) -> [Action] {
         var actions: [Action] = []
+        var gone: [Action] = []
         let byId = Dictionary(apple.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         var linked = Set<String>()
 
@@ -46,7 +47,7 @@ enum ReminderMerge {
             guard let ek = byId[appleId] else {
                 // Gone from Apple Reminders.
                 if row.syncStatus == "pending_push", !row.isDone { actions.append(.createApple(row)) }
-                else { actions.append(.deleteRow(row.id)) }
+                else { gone.append(.deleteRow(row.id)) }
                 continue
             }
             if row.syncStatus == "pending_delete" {
@@ -67,6 +68,10 @@ enum ReminderMerge {
                 actions.append(.updateApple(row, appleId: appleId))
             }
         }
+
+        // Most linked reminders missing at once almost always means EventKit hadn't loaded yet
+        // (launch, iCloud resync), not that you deleted them: skip those deletes this round.
+        if !(gone.count >= 3 && gone.count * 2 > linked.count) { actions += gone }
 
         let weekAgo = now.addingTimeInterval(-7 * 86_400)
         for ek in apple where !linked.contains(ek.id) {
@@ -134,6 +139,20 @@ struct SimpleRRule: Equatable, Sendable {
         guard let f = parts["FREQ"].flatMap(Freq.init(rawValue:)) else { return nil }
         freq = f
         interval = max(1, Int(parts["INTERVAL"] ?? "1") ?? 1)
+    }
+
+    /// The first occurrence after `now`, stepping from `date` (a repeating reminder marked done moves here).
+    func next(after date: Date, now: Date = Date(), calendar: Calendar = .current) -> Date {
+        let unit: Calendar.Component
+        switch freq { case .daily: unit = .day; case .weekly: unit = .weekOfYear; case .monthly: unit = .month; case .yearly: unit = .year }
+        var steps = 1
+        var next = calendar.date(byAdding: unit, value: interval, to: date) ?? date
+        // Step from the original date each time so month ends don't drift (Jan 31 → Feb 28 → Mar 31).
+        while next <= now, steps < 5000 {
+            steps += 1
+            next = calendar.date(byAdding: unit, value: interval * steps, to: date) ?? next
+        }
+        return next
     }
 
     var string: String { interval == 1 ? "FREQ=\(freq.rawValue)" : "FREQ=\(freq.rawValue);INTERVAL=\(interval)" }

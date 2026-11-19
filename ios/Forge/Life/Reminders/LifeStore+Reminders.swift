@@ -24,8 +24,13 @@ extension LifeStore {
         await reload(["reminders"])
     }
 
+    /// A repeating reminder moves to its next occurrence (like Apple Reminders); others are marked done.
     func completeReminder(_ r: Reminder) async {
-        await updateReminder(r, ["completed_at": .of(Date())])
+        if let rule = SimpleRRule(r.repeatRule), let at = r.remindAt {
+            await updateReminder(r, ["remind_at": .of(rule.next(after: at)), "completed_at": .null])
+        } else {
+            await updateReminder(r, ["completed_at": .of(Date())])
+        }
     }
 
     func reopenReminder(_ r: Reminder) async {

@@ -57,15 +57,26 @@ actor SupabaseClient {
         updateSession(nil)
     }
 
+    /// In-flight refresh, shared so parallel requests don't each spend the (single-use) refresh token.
+    private var refreshTask: Task<Void, Error>?
+
     private func refreshIfNeeded() async throws {
         guard let s = session else { throw APIError.missingKey("Supabase sign-in") }
         guard s.expiresAt.timeIntervalSinceNow < 60 else { return }
-        let body = try JSONEncoder().encode(["refresh_token": s.refreshToken])
+        if let refreshTask { return try await refreshTask.value }
+        let task = Task { try await refresh(s.refreshToken) }
+        refreshTask = task
+        defer { refreshTask = nil }
+        try await task.value
+    }
+
+    private func refresh(_ token: String) async throws {
+        let body = try JSONEncoder().encode(["refresh_token": token])
         do {
             let data = try await send("POST", "auth/v1/token", query: [URLQueryItem(name: "grant_type", value: "refresh_token")], body: body, auth: false)
             try setSession(from: data)
         } catch APIError.http(let code, let msg) where code == 400 || code == 401 {
-            updateSession(nil)  // refresh token revoked/expired: sign in again
+            if session?.refreshToken == token { updateSession(nil) }  // revoked/expired: sign in again
             throw APIError.http(code, msg)
         }
     }
