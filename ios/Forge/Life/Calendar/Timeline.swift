@@ -32,7 +32,7 @@ enum Timeline {
     /// Events, items due today and reminders today, sorted by time; untimed entries first.
     static func build(events: [CalEvent], items: [Item], reminders: [Reminder], day: Date = Date(), calendar: Calendar = .current) -> [TimelineEntry] {
         let start = calendar.startOfDay(for: day)
-        let end = start.addingTimeInterval(86_400)
+        let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400)
         var out: [TimelineEntry] = []
         for e in events where e.end > start && e.start < end {
             out.append(TimelineEntry(kind: .event(e), time: e.isAllDay ? nil : e.start, end: e.isAllDay ? nil : e.end))
@@ -78,7 +78,7 @@ enum Timeline {
         f.timeZone = calendar.timeZone
         f.dateFormat = "HH:mm"
         let list = todays.prefix(12).map { $0.isAllDay ? "\($0.title) (all day)" : "\(f.string(from: $0.start))-\(f.string(from: $0.end)) \($0.title)" }
-        let endOfDay = calendar.startOfDay(for: now).addingTimeInterval(86_400 - 3600)   // until 23:00
+        let endOfDay = calendar.date(bySettingHour: 23, minute: 0, second: 0, of: now) ?? now   // until 23:00
         let free = freeSlots(events: todays, from: now, until: endOfDay, minMinutes: 30).prefix(6)
             .map { "\(f.string(from: $0.start))-\(f.string(from: $0.end))" }
         var parts = ["Calendar today: " + (list.isEmpty ? "no events" : list.joined(separator: "; "))]

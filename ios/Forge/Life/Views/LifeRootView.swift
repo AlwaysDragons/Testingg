@@ -104,8 +104,13 @@ private struct LifeTabs: View {
         }
         .onChange(of: phase) { _, new in
             if new == .active {
+                calendar.reload()   // the day may have changed while the app was closed
                 Task {
+                    await store.syncTimezone()   // travel: keeps the assistant's "today" right
                     await Self.remindersChanged(store, reminderSync)
+                    await habits.reload()        // "done today" resets at midnight
+                    await focus.restore(store: store)
+                    if store.isEnabled(.insights) { await smart.refreshIfNeeded() }
                     await briefing.refreshIfNeeded(cloud.supabase, deviceContext: deviceContext)
                 }
             }

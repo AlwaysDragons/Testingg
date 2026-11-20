@@ -28,7 +28,9 @@ struct TodayView: View {
                     } header: { SectionHeader(title: "Timeline") }
                     .listRowBackground(DS.Palette.surface)
                 }
-                let dueReminders = useTimeline ? [] : store.reminderGroups().today
+                // The timeline holds today's reminders; earlier, still-open ones would otherwise vanish from Today.
+                let startOfToday = Calendar.current.startOfDay(for: Date())
+                let dueReminders = store.reminderGroups().today.filter { !useTimeline || ($0.remindAt ?? .distantFuture) < startOfToday }
                 Section {
                     ForEach(dueReminders.prefix(6)) { r in ReminderRow(reminder: r) { editingReminder = r } }
                     NavigationLink { RemindersView() } label: {

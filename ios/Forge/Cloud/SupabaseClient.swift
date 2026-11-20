@@ -16,12 +16,25 @@ actor SupabaseClient {
     let anonKey: String
     private(set) var session: SupabaseSession?
     private let onSessionChange: @Sendable (SupabaseSession?) -> Void
+    /// Reads the saved session. Siri, the Watch and background tasks use their own client; when one of them
+    /// refreshes, the single-use refresh token this client holds is spent, so adopt the newer saved one.
+    private let loadStored: @Sendable () -> SupabaseSession?
 
-    init(baseURL: URL, anonKey: String, session: SupabaseSession?, onSessionChange: @escaping @Sendable (SupabaseSession?) -> Void) {
+    init(baseURL: URL, anonKey: String, session: SupabaseSession?, loadStored: @escaping @Sendable () -> SupabaseSession? = { nil },
+         onSessionChange: @escaping @Sendable (SupabaseSession?) -> Void) {
         self.baseURL = baseURL
         self.anonKey = anonKey
         self.session = session
+        self.loadStored = loadStored
         self.onSessionChange = onSessionChange
+    }
+
+    /// Takes the saved session if another client refreshed it (same user, newer token).
+    private func adoptNewerStoredSession() -> Bool {
+        guard let current = session, let stored = loadStored(), stored.userId == current.userId,
+              stored.refreshToken != current.refreshToken, stored.expiresAt > current.expiresAt else { return false }
+        session = stored
+        return true
     }
 
     private struct TokenResponse: Decodable {
@@ -61,8 +74,9 @@ actor SupabaseClient {
     private var refreshTask: Task<Void, Error>?
 
     private func refreshIfNeeded() async throws {
-        guard let s = session else { throw APIError.missingKey("Supabase sign-in") }
-        guard s.expiresAt.timeIntervalSinceNow < 60 else { return }
+        guard session != nil else { throw APIError.missingKey("Supabase sign-in") }
+        if session!.expiresAt.timeIntervalSinceNow < 60 { _ = adoptNewerStoredSession() }
+        guard let s = session, s.expiresAt.timeIntervalSinceNow < 60 else { return }
         if let refreshTask { return try await refreshTask.value }
         let task = Task { try await refresh(s.refreshToken) }
         refreshTask = task
@@ -76,6 +90,7 @@ actor SupabaseClient {
             let data = try await send("POST", "auth/v1/token", query: [URLQueryItem(name: "grant_type", value: "refresh_token")], body: body, auth: false)
             try setSession(from: data)
         } catch APIError.http(let code, let msg) where code == 400 || code == 401 {
+            if adoptNewerStoredSession() { return }   // another client already refreshed it
             if session?.refreshToken == token { updateSession(nil) }  // revoked/expired: sign in again
             throw APIError.http(code, msg)
         }

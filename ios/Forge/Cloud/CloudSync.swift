@@ -157,7 +157,7 @@ final class CloudSync {
             auth = .notConfigured
             return
         }
-        client = SupabaseClient(baseURL: url, anonKey: anon, session: session) { [weak self] s in
+        client = SupabaseClient(baseURL: url, anonKey: anon, session: session, loadStored: { CloudSync.loadSession() }) { [weak self] s in
             Task { @MainActor in
                 CloudSync.saveSession(s)
                 // Refresh token expired or revoked: show the sign-in screen instead of failing every request.
@@ -167,7 +167,7 @@ final class CloudSync {
         if let s = session { auth = .signedIn(email: s.email ?? "") } else { auth = .signedOut }
     }
 
-    private static func loadSession() -> SupabaseSession? {
+    nonisolated private static func loadSession() -> SupabaseSession? {
         let raw = Keychain.get(Key.session)
         guard !raw.isEmpty else { return nil }
         return try? JSONDecoder().decode(SupabaseSession.self, from: Data(raw.utf8))

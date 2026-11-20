@@ -46,9 +46,11 @@ final class CalendarService {
         let shown = calendars.filter { !hidden.contains($0.calendarIdentifier) }
         guard !shown.isEmpty else { today = []; return }
         let start = Calendar.current.startOfDay(for: day)
-        let predicate = eventStore.predicateForEvents(withStart: start, end: start.addingTimeInterval(86_400), calendars: shown)
-        today = eventStore.events(matching: predicate).map { e in
-            CalEvent(id: e.eventIdentifier ?? UUID().uuidString, title: e.title ?? "Event", start: e.startDate, end: e.endDate,
+        let end = Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400)
+        let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: shown)
+        today = eventStore.events(matching: predicate).sorted { $0.startDate < $1.startDate }.map { e in
+            // Occurrences of a repeating event share an identifier; the start time keeps list ids unique.
+            CalEvent(id: (e.eventIdentifier ?? UUID().uuidString) + "@\(Int(e.startDate.timeIntervalSince1970))", title: e.title ?? "Event", start: e.startDate, end: e.endDate,
                      isAllDay: e.isAllDay, calendarTitle: e.calendar?.title ?? "", colorHex: nil)
         }
     }
@@ -79,7 +81,9 @@ final class CalendarService {
             e.notes = "Planned with Forge"
             do { try eventStore.save(e, span: .thisEvent, commit: false); added += 1 } catch { lastError = error.localizedDescription }
         }
-        try? eventStore.commit()
+        if added > 0 {
+            do { try eventStore.commit() } catch { lastError = error.localizedDescription; eventStore.reset(); added = 0 }
+        }
         reload()
         return added
     }

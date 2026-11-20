@@ -54,7 +54,8 @@ extension LifeStore {
     /// Reminders grouped for the Reminders view.
     func reminderGroups(now: Date = Date(), calendar: Calendar = .current) -> (today: [Reminder], upcoming: [Reminder], done: [Reminder]) {
         let visible = reminders.filter { $0.syncStatus != "pending_delete" }
-        let endOfToday = calendar.startOfDay(for: now).addingTimeInterval(86_400)
+        let startOfToday = calendar.startOfDay(for: now)
+        let endOfToday = calendar.date(byAdding: .day, value: 1, to: startOfToday) ?? startOfToday.addingTimeInterval(86_400)
         let open = visible.filter { !$0.isDone }
         let today = open.filter { ($0.remindAt ?? .distantFuture) < endOfToday }.sorted { ($0.remindAt ?? .distantPast) < ($1.remindAt ?? .distantPast) }
         let upcoming = open.filter { ($0.remindAt ?? .distantFuture) >= endOfToday }.sorted { ($0.remindAt ?? .distantFuture) < ($1.remindAt ?? .distantFuture) }
