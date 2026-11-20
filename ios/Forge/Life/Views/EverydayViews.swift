@@ -190,6 +190,9 @@ struct JournalView: View {
                 } header: { SectionHeader(title: "Earlier") }
                 .listRowBackground(DS.Palette.surface)
             }
+            if let e = everyday.lastError {
+                Section { Text(e).font(DS.Typo.caption).foregroundStyle(DS.Palette.critical) }.listRowBackground(DS.Palette.surface)
+            }
         }
         .scrollContentBackground(.hidden)
         .dsScreen()

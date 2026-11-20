@@ -75,6 +75,9 @@ private struct PersonEditor: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let e = admin.lastError {
+                    Section { Text(e).font(DS.Typo.caption).foregroundStyle(DS.Palette.critical) }.listRowBackground(DS.Palette.surface)
+                }
                 Section {
                     TextField("Name", text: $name)
                     Toggle("Birthday", isOn: $hasBirthday)
@@ -103,7 +106,7 @@ private struct PersonEditor: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("Save") { save() }.disabled(name.trimmingCharacters(in: .whitespaces).isEmpty) }
             }
-            .onAppear(perform: load)
+            .onAppear { admin.lastError = nil; load() }
         }
     }
 
@@ -121,8 +124,7 @@ private struct PersonEditor: View {
         let list = gifts.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         let n = name, b = hasBirthday ? birthday : nil, note = notes, e = keepInTouch ? every : nil
         Task {
-            await admin.savePerson(name: n, birthday: b, notes: note, gifts: list, contactEvery: e)
-            dismiss()
+            if await admin.savePerson(id: person?.id, name: n, birthday: b, notes: note, gifts: list, contactEvery: e) { dismiss() }
         }
     }
 }
@@ -198,6 +200,9 @@ private struct DocumentEditor: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let e = admin.lastError {
+                    Section { Text(e).font(DS.Typo.caption).foregroundStyle(DS.Palette.critical) }.listRowBackground(DS.Palette.surface)
+                }
                 Section {
                     TextField("Title (e.g. Passport)", text: $title)
                     TextField("Category (id, insurance, car…)", text: $category).textInputAutocapitalization(.never)
@@ -222,7 +227,7 @@ private struct DocumentEditor: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) { Button("Save") { save() }.disabled(title.trimmingCharacters(in: .whitespaces).isEmpty) }
             }
-            .onAppear(perform: load)
+            .onAppear { admin.lastError = nil; load() }
             .onChange(of: item) { _, new in Task { await loadFile(new) } }
         }
     }
@@ -244,8 +249,7 @@ private struct DocumentEditor: View {
     private func save() {
         let t = title, c = category, l = location, e = hasExpiry ? expires : nil, n = notes, f = file
         Task {
-            await admin.saveDocument(title: t, category: c, location: l, expires: e, notes: n, file: f)
-            dismiss()
+            if await admin.saveDocument(existing: document, title: t, category: c, location: l, expires: e, notes: n, file: f) { dismiss() }
         }
     }
 }

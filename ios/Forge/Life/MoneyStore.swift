@@ -99,7 +99,8 @@ enum Savings {
         let saved = max(0, Self.saved(item) + amount)
         let pct = target(item) > 0 ? Int((min(1, saved / target(item)) * 100).rounded()) : 0
         var fields: Row = ["data": item.data.setting("saved_amount", .number(saved)), "progress": .int(pct)]
-        if pct >= 100 { fields["status"] = .string("done"); fields["completed_at"] = .of(Date()) }
+        if pct >= 100, !item.isDone { fields["status"] = .string("done"); fields["completed_at"] = .of(Date()) }
+        if pct < 100, item.isDone { fields["status"] = .string("in_progress"); fields["completed_at"] = .null }   // money taken back out
         return fields
     }
 }

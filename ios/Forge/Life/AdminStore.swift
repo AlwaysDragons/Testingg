@@ -56,11 +56,13 @@ final class AdminStore {
 
     // MARK: People
 
-    func savePerson(name: String, birthday: Date?, notes: String, gifts: [String], contactEvery: Int?) async {
-        await call("ai_add_person", ["p": .object([
-            "name": .string(name), "birthday": .of(birthday.map { LifeCoding.dayString($0) }), "notes": .string(notes),
-            "gift_ideas": .of(gifts), "contact_every_days": .of(contactEvery),
-        ])])
+    /// Pass `id` when editing so a rename updates the row (and gift ideas are replaced, not merged).
+    @discardableResult
+    func savePerson(id: UUID? = nil, name: String, birthday: Date?, notes: String, gifts: [String], contactEvery: Int?) async -> Bool {
+        var p: Row = ["name": .string(name), "birthday": .of(birthday.map { LifeCoding.dayString($0) }), "notes": .string(notes),
+                      "gift_ideas": .of(gifts), "contact_every_days": .of(contactEvery)]
+        if let id { p["id"] = .of(id) }
+        return await call("ai_add_person", ["p": .object(p)])
     }
 
     func logContact(_ p: Person) async { await call("ai_log_contact", ["p_person": .string(p.id.uuidString.lowercased())]) }
@@ -69,21 +71,31 @@ final class AdminStore {
 
     // MARK: Documents
 
-    func saveDocument(title: String, category: String?, location: String?, expires: Date?, notes: String?, file: Data?, fileExtension: String = "jpg") async {
-        guard let client else { return }
+    /// Pass `existing` when editing so a rename updates the row; a replaced file's old copy is removed.
+    @discardableResult
+    func saveDocument(existing: LifeDocument? = nil, title: String, category: String?, location: String?, expires: Date?, notes: String?,
+                      file: Data?, fileExtension: String = "jpg") async -> Bool {
+        guard let client else { return false }
         var path: String?
         if let file, let uid = await client.userId {
             path = "\(uid)/\(UUID().uuidString.lowercased()).\(fileExtension)"
             do {
                 try await client.upload(bucket: "documents", path: path!, data: file, contentType: fileExtension == "pdf" ? "application/pdf" : "image/jpeg")
-            } catch { lastError = error.localizedDescription; path = nil }
+            } catch {
+                // Keep the sheet's input: saving without the file would drop it silently.
+                lastError = "Couldn't upload the file. Check your connection and try again."
+                return false
+            }
         }
         var p: [String: JSONValue] = ["title": .string(title), "expires_at": .of(expires.map { LifeCoding.dayString($0) })]
         if let category, !category.isEmpty { p["category"] = .string(category) }
         if let location { p["location_note"] = .string(location) }
         if let notes { p["notes"] = .string(notes) }
         if let path { p["file_path"] = .string(path) }
-        await call("ai_save_document", ["p": .object(p)])
+        if let existing { p["id"] = .of(existing.id) }
+        let ok = await call("ai_save_document", ["p": .object(p)])
+        if ok, path != nil, let old = existing?.filePath { try? await client.removeObject(bucket: "documents", path: old) }
+        return ok
     }
 
     func delete(_ d: LifeDocument) async {
@@ -97,13 +109,17 @@ final class AdminStore {
         return try? await client.signedURL(bucket: "documents", path: path, expiresIn: 600)
     }
 
-    private func call(_ fn: String, _ args: Row) async {
-        guard let client else { return }
+    @discardableResult
+    private func call(_ fn: String, _ args: Row) async -> Bool {
+        guard let client else { return false }
+        var ok = false
         do {
             let _: JSONValue = try await LifeRepository(client: client).rpc(fn, args)
             lastError = nil
+            ok = true
         } catch { lastError = error.localizedDescription }
         await reload()
+        return ok
     }
 }
 

@@ -26,6 +26,7 @@ final class SmartStore {
     private(set) var insights: [Insight] = []
     private(set) var results: [SearchResult] = []
     private(set) var isSearching = false
+    @ObservationIgnored private var searchGeneration = 0
     private var client: SupabaseClient?
 
     func connect(_ client: SupabaseClient?) async {
@@ -56,10 +57,15 @@ final class SmartStore {
 
     func search(_ query: String) async {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let client, q.count >= 2 else { results = []; return }
+        searchGeneration += 1
+        let generation = searchGeneration
+        guard let client, q.count >= 2 else { results = []; isSearching = false; return }
         isSearching = true
-        defer { isSearching = false }
-        results = (try? await LifeRepository(client: client).rpc("ai_search_all", ["p_query": .string(q), "p_limit": .int(50)])) ?? []
+        let found: [SearchResult]? = try? await LifeRepository(client: client).rpc("ai_search_all", ["p_query": .string(q), "p_limit": .int(50)])
+        // While typing, an older query can finish last: only the newest one may set results.
+        guard generation == searchGeneration else { return }
+        isSearching = false
+        if let found { results = found } else if !Task.isCancelled { results = [] }
     }
 
     // MARK: Nudges

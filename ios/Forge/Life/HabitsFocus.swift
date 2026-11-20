@@ -82,6 +82,10 @@ final class FocusStore {
         } else {
             active = nil
         }
+        // Reattach the Live Activity from a previous launch so ending the session also ends it; drop orphans.
+        let running = Activity<FocusActivityAttributes>.activities
+        activity = active == nil ? nil : running.first
+        for a in running where a.id != activity?.id { await a.end(nil, dismissalPolicy: .immediate) }
         totals = (try? await repo.rpc("ai_focus_totals", ["p_days": .int(7)])) ?? []
     }
 

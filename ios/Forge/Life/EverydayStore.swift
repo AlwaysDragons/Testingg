@@ -129,8 +129,11 @@ final class EverydayStore {
     func saveJournal(_ content: String, for day: Date) async {
         guard let client else { return }
         let row: Row = ["date": .string(LifeCoding.dayString(day)), "content": .string(content), "source": .string("manual")]
-        try? await client.rest("POST", "journal_entries", query: [.init(name: "on_conflict", value: "user_id,date")],
-                               body: try JSONEncoder().encode([row]), prefer: "resolution=merge-duplicates,return=minimal")
+        do {
+            try await client.rest("POST", "journal_entries", query: [.init(name: "on_conflict", value: "user_id,date")],
+                                  body: try JSONEncoder().encode([row]), prefer: "resolution=merge-duplicates,return=minimal")
+            lastError = nil
+        } catch { lastError = "Couldn't save your edit. Check your connection." }   // never lose an edit silently
         await reload()
     }
 
