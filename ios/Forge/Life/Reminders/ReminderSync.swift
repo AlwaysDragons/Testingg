@@ -29,6 +29,7 @@ final class ReminderSync {
 
     @ObservationIgnored private var changeObserver: NSObjectProtocol?
     @ObservationIgnored private var pendingSync: Task<Void, Never>?
+    @ObservationIgnored private var rerun = false
     @ObservationIgnored weak var store: LifeStore?
 
     init() {
@@ -79,9 +80,14 @@ final class ReminderSync {
     }
 
     func sync() async {
-        guard authorized, let store, let repo = store.repo, !isSyncing else { return }
+        guard authorized, let store, let repo = store.repo else { return }
+        // A change that arrives mid-sync runs once more afterwards instead of being dropped.
+        guard !isSyncing else { rerun = true; return }
         isSyncing = true
-        defer { isSyncing = false }
+        defer {
+            isSyncing = false
+            if rerun { rerun = false; scheduleSync() }
+        }
         let synced = lists.filter(isSynced)
         var apple = await fetch(in: synced)
         // Also look up reminders linked to rows that live in lists you don't sync (or were moved).

@@ -9,6 +9,18 @@ struct TodayView: View {
     @Environment(CalendarService.self) private var calendar
     @State private var showPlan = false
     @Environment(FocusStore.self) private var focus
+    @Environment(AreaLock.self) private var areaLock
+
+    /// Items outside Face ID-locked areas (unless unlocked this session).
+    private var lockedAreaIds: Set<UUID> { Set(store.areas.filter { !areaLock.isOpen($0) }.map(\.id)) }
+    private var visibleItems: [Item] {
+        let hidden = lockedAreaIds
+        return hidden.isEmpty ? store.items : store.items.filter { !hidden.contains($0.areaId) }
+    }
+    private var visibleReminders: [Reminder] {
+        let hidden = lockedAreaIds
+        return hidden.isEmpty ? store.reminders : store.reminders.filter { $0.areaId.map { !hidden.contains($0) } ?? true }
+    }
 
     /// With Calendar on, today is one timeline of events, timed items and reminders.
     private var useTimeline: Bool { store.isEnabled(.calendar) && calendar.authorized }
@@ -19,7 +31,7 @@ struct TodayView: View {
                 everydaySection
                 if store.isEnabled(.insights) { InsightsSection() }
                 if useTimeline {
-                    let entries = Timeline.build(events: calendar.today, items: store.items, reminders: store.reminders)
+                    let entries = Timeline.build(events: calendar.today, items: visibleItems, reminders: visibleReminders)
                     Section {
                         if entries.isEmpty { Text("Nothing scheduled today").font(DS.Typo.body).foregroundStyle(DS.Palette.secondary) }
                         ForEach(entries) { entry in
@@ -30,7 +42,8 @@ struct TodayView: View {
                 }
                 // The timeline holds today's reminders; earlier, still-open ones would otherwise vanish from Today.
                 let startOfToday = Calendar.current.startOfDay(for: Date())
-                let dueReminders = store.reminderGroups().today.filter { !useTimeline || ($0.remindAt ?? .distantFuture) < startOfToday }
+                let hiddenAreas = lockedAreaIds
+                let dueReminders = store.reminderGroups().today.filter { r in r.areaId.map { !hiddenAreas.contains($0) } ?? true }.filter { !useTimeline || ($0.remindAt ?? .distantFuture) < startOfToday }
                 Section {
                     ForEach(dueReminders.prefix(6)) { r in ReminderRow(reminder: r) { editingReminder = r } }
                     NavigationLink { RemindersView() } label: {
@@ -38,7 +51,7 @@ struct TodayView: View {
                     }
                 } header: { if !dueReminders.isEmpty { SectionHeader(title: "Reminders") } }
                 .listRowBackground(DS.Palette.surface)
-                let groups = Summaries.group(store.items.filter { !$0.isDone && !$0.isHabit && $0.dueDate != nil })
+                let groups = Summaries.group(visibleItems.filter { !$0.isDone && !$0.isHabit && $0.dueDate != nil })
                     .filter { useTimeline ? [Summaries.DueGroup.overdue, .tomorrow].contains($0.0) : [Summaries.DueGroup.overdue, .today, .tomorrow].contains($0.0) }
                 if groups.isEmpty && !useTimeline {
                     Section {
