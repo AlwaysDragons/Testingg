@@ -58,25 +58,26 @@ final class WatchModel: NSObject, WCSessionDelegate {
     }
 
     func logHabit(_ id: String) {
-        done.insert(id)
-        send(["action": "logHabit", "id": id])
+        done.insert(id)   // optimistic; undone if the phone can't log it
+        send(["action": "logHabit", "id": id]) { [weak self] ok in if !ok { self?.done.remove(id) } }
     }
 
     func capture(_ text: String) { send(["action": "capture", "text": text]) }
 
     func checkin(mood: Int, energy: Int) { send(["action": "checkin", "mood": mood, "energy": energy]) }
 
-    private func send(_ message: [String: Any]) {
+    private func send(_ message: [String: Any], completion: @escaping (Bool) -> Void = { _ in }) {
         guard WCSession.default.activationState == .activated, WCSession.default.isReachable else {
             status = "Open Forge on your iPhone and try again."
+            completion(false)
             return
         }
         WCSession.default.sendMessage(message, replyHandler: { reply in
             let ok = reply["ok"] as? Bool ?? false
             let summary = reply["summary"] as? String
-            DispatchQueue.main.async { self.status = ok ? (summary ?? "Done") : (reply["error"] as? String ?? "Couldn't do that.") }
+            DispatchQueue.main.async { self.status = ok ? (summary ?? "Done") : (reply["error"] as? String ?? "Couldn't do that."); completion(ok) }
         }, errorHandler: { _ in
-            DispatchQueue.main.async { self.status = "Couldn't reach your iPhone." }
+            DispatchQueue.main.async { self.status = "Couldn't reach your iPhone."; completion(false) }
         })
     }
 

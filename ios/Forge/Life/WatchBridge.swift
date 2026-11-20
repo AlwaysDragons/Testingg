@@ -27,8 +27,7 @@ final class WatchBridge: NSObject {
         switch message["action"] as? String {
         case "logHabit":
             guard let id = message["id"] as? String else { return ["ok": false] }
-            await HabitActions.log(itemId: id)
-            return ["ok": true]
+            return ["ok": await HabitActions.log(itemId: id)]
         case "capture":
             guard let text = message["text"] as? String,
                   let saved = await CaptureStore.capture(text, source: "widget", client: client) else { return ["ok": false] }
