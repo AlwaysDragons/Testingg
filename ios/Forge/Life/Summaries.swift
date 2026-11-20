@@ -89,7 +89,7 @@ enum Summaries {
         if let latest = d.metrics.max(by: { $0.recordedAt < $1.recordedAt }), let h = metricHero(latest.name, d.metrics) { return h }
         if let last = d.logs.max(by: { $0.loggedAt < $1.loggedAt }) {
             return Hero(value: "\(d.logs.filter { $0.loggedAt > now.addingTimeInterval(-7 * 86_400) }.count)", label: "logs this week",
-                        secondary: "last \(relative(last.loggedAt, now: now))")
+                        secondary: "last \(relative(last.loggedAt, now: now, calendar: calendar))")
         }
         return Hero(value: "–", label: "nothing yet")
     }
@@ -117,7 +117,7 @@ enum Summaries {
         }
         t.remindersDue = reminders.filter { r in
             guard !r.isDone, r.syncStatus != "pending_delete", let at = r.remindAt else { return false }
-            return at < calendar.startOfDay(for: now).addingTimeInterval(86_400)
+            return at < (calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now)
         }.count
         return t
     }
@@ -141,9 +141,11 @@ enum Summaries {
 
     static func group(_ items: [Item], now: Date = Date(), calendar: Calendar = .current) -> [(DueGroup, [Item])] {
         let startToday = calendar.startOfDay(for: now)
-        let startTomorrow = startToday.addingTimeInterval(86_400)
-        let startDayAfter = startTomorrow.addingTimeInterval(86_400)
-        let weekEnd = startToday.addingTimeInterval(7 * 86_400)
+        // Calendar math, so a daylight-saving change doesn't shift the buckets by an hour.
+        func day(_ n: Int) -> Date { calendar.date(byAdding: .day, value: n, to: startToday) ?? startToday.addingTimeInterval(Double(n) * 86_400) }
+        let startTomorrow = day(1)
+        let startDayAfter = day(2)
+        let weekEnd = day(7)
         var buckets: [DueGroup: [Item]] = [:]
         for item in items {
             let g: DueGroup
@@ -206,7 +208,9 @@ enum Summaries {
     static func money(_ v: Double, _ currency: String) -> String {
         let symbols = ["USD": "$", "EUR": "€", "GBP": "£", "JPY": "¥"]
         let s = symbols[currency.uppercased()] ?? currency.uppercased() + " "
-        return s + (v >= 1000 ? String(format: "%.0f", v) : number((v * 100).rounded() / 100))
+        // Whole amounts stay short ("$12"); cents always show two digits ("$12.50", never "$12.5").
+        let cents = (v * 100).rounded() / 100
+        return s + (abs(v) >= 1000 || cents.rounded() == cents ? String(format: "%.0f", v) : String(format: "%.2f", cents))
     }
 
     /// "sleep_hours" → "sleep hours"
@@ -214,8 +218,9 @@ enum Summaries {
         name.replacingOccurrences(of: "_", with: " ")
     }
 
-    static func relative(_ date: Date, now: Date) -> String {
-        let days = Int(now.timeIntervalSince(date) / 86_400)
+    static func relative(_ date: Date, now: Date, calendar: Calendar = .current) -> String {
+        // Calendar days, so last night at 23:00 reads "yesterday" at 08:00.
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day ?? 0
         if days <= 0 { return "today" }
         if days == 1 { return "yesterday" }
         return "\(days) days ago"

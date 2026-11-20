@@ -56,26 +56,34 @@ final class MoneyStore {
         subscriptions = (try? await repo.get("subscriptions", ["select": "id,name,amount,currency,billing_cycle,renews_on,reminder_id", "order": "renews_on.asc.nullslast"])) ?? []
     }
 
-    func addExpense(amount: Double, category: String, note: String?) async {
-        guard let client else { return }
+    @discardableResult
+    func addExpense(amount: Double, category: String, note: String?) async -> Bool {
+        guard let client else { return false }
+        var ok = false
         do {
             let _: JSONValue = try await LifeRepository(client: client).rpc("ai_log_expense", [
                 "p_amount": .number(amount), "p_category": .string(category), "p_note": .of(note?.nilIfBlank),
             ])
             lastError = nil
+            ok = true
         } catch { lastError = error.localizedDescription }
         await reload()
+        return ok
     }
 
-    func saveSubscription(name: String, amount: Double, cycle: String, renewsOn: Date) async {
-        guard let client else { return }
+    @discardableResult
+    func saveSubscription(name: String, amount: Double, cycle: String, renewsOn: Date) async -> Bool {
+        guard let client else { return false }
+        var ok = false
         do {
             let _: JSONValue = try await LifeRepository(client: client).rpc("ai_upsert_subscription", ["p": .object([
                 "name": .string(name), "amount": .number(amount), "billing_cycle": .string(cycle), "renews_on": .string(LifeCoding.dayString(renewsOn)),
             ])])
             lastError = nil
+            ok = true
         } catch { lastError = error.localizedDescription }
         await reload()
+        return ok
     }
 
     func delete(_ s: Subscription) async {
@@ -107,6 +115,11 @@ enum Savings {
 
 extension String {
     var nilIfBlank: String? { trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : self }
+    /// A typed amount ("12,50" or "12.5") when it is a real number above zero (no "nan", "inf" or negatives).
+    var positiveNumber: Double? {
+        guard let v = Double(trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")), v.isFinite, v > 0 else { return nil }
+        return v
+    }
 }
 
 extension LifeStore {

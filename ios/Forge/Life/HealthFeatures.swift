@@ -103,8 +103,9 @@ final class MeasurementStore {
 
     var types: [String] { Array(Set(measurements.map(\.type))).sorted() }
 
-    func add(type: String, value: Double, unit: String, photo: Data?) async {
-        guard let client else { return }
+    @discardableResult
+    func add(type: String, value: Double, unit: String, photo: Data?) async -> Bool {
+        guard let client else { return false }
         var path: String?
         var localName: String?
         if let photo {
@@ -113,10 +114,14 @@ final class MeasurementStore {
                 if Self.saveLocal(photo, name: name) { localName = name }
             } else if let uid = await client.userId {
                 path = "\(uid)/\(name)"
-                do { try await client.upload(bucket: "photos", path: path!, data: photo, contentType: "image/jpeg") } catch { lastError = error.localizedDescription; path = nil }
+                do { try await client.upload(bucket: "photos", path: path!, data: photo, contentType: "image/jpeg") } catch {
+                    lastError = "Couldn't upload the photo. Nothing was saved; try again."   // don't save the value without its photo
+                    return false
+                }
             }
         }
         struct Recorded: Decodable { struct M: Decodable { var id: UUID }; var measurement: M }
+        var ok = false
         do {
             let r: Recorded = try await LifeRepository(client: client).rpc("ai_log_measurement", [
                 "p_type": .string(type), "p_value": .number(value), "p_unit": .string(unit), "p_photo_path": .of(path),
@@ -126,8 +131,15 @@ final class MeasurementStore {
                 UserDefaults.standard.set(localPhotos, forKey: "measurements.localPhotos")
             }
             lastError = nil
-        } catch { lastError = error.localizedDescription }
+            ok = true
+        } catch {
+            lastError = error.localizedDescription
+            // Don't leave an orphaned photo behind.
+            if let path { try? await client.removeObject(bucket: "photos", path: path) }
+            if let localName { try? FileManager.default.removeItem(at: Self.localURL(localName)) }
+        }
         await reload()
+        return ok
     }
 
     func delete(_ m: Measurement) async {

@@ -274,12 +274,13 @@ private struct AddMeasurementSheet: View {
     private let types: [String] = ["waist", "chest", "arm", "thigh", "hips", "neck", "body_fat", "weight"]
     private let units: [String] = ["cm", "in", "%", "kg", "lb"]
 
-    private var parsed: Double? { Double(value.replacingOccurrences(of: ",", with: ".")) }
+    private var parsed: Double? { value.positiveNumber }
 
     var body: some View {
         NavigationStack {
             form
                 .navigationTitle("New measurement")
+                .onAppear { measurements.lastError = nil }
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbar }
                 .onChange(of: type) { _, t in unit = Self.defaultUnit(t) }
@@ -303,6 +304,9 @@ private struct AddMeasurementSheet: View {
                 PhotosPicker(selection: $item, matching: .images) { photoLabel }
             }
             .listRowBackground(DS.Palette.surface)
+            if let e = measurements.lastError {
+                Section { Text(e).font(DS.Typo.caption).foregroundStyle(DS.Palette.critical) }.listRowBackground(DS.Palette.surface)
+            }
         }
         .scrollContentBackground(.hidden)
         .dsScreen()
@@ -325,8 +329,7 @@ private struct AddMeasurementSheet: View {
         guard let v = parsed else { return }
         let t = type, u = unit, p = photo
         Task {
-            await measurements.add(type: t, value: v, unit: u, photo: p)
-            dismiss()
+            if await measurements.add(type: t, value: v, unit: u, photo: p) { dismiss() }
         }
     }
 

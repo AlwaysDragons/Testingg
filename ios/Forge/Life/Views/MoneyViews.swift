@@ -122,8 +122,9 @@ private struct ExpenseSheet: View {
     @State private var amount = ""
     @State private var category = "food"
     @State private var note = ""
+    @State private var saving = false
 
-    private var parsed: Double? { Double(amount.replacingOccurrences(of: ",", with: ".")) }
+    private var parsed: Double? { amount.positiveNumber }
 
     var body: some View {
         NavigationStack {
@@ -136,10 +137,14 @@ private struct ExpenseSheet: View {
                     TextField("Note", text: $note)
                 }
                 .listRowBackground(DS.Palette.surface)
+                if let e = money.lastError {
+                    Section { Text(e).font(DS.Typo.caption).foregroundStyle(DS.Palette.critical) }.listRowBackground(DS.Palette.surface)
+                }
             }
             .scrollContentBackground(.hidden)
             .dsScreen()
             .navigationTitle("Expense")
+            .onAppear { money.lastError = nil }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -147,13 +152,15 @@ private struct ExpenseSheet: View {
                     Button("Save") {
                         guard let v = parsed else { return }
                         let c = category, n = note
+                        saving = true   // one tap, one expense
                         Task {
-                            await money.addExpense(amount: v, category: c, note: n)
+                            defer { saving = false }
+                            guard await money.addExpense(amount: v, category: c, note: n) else { return }   // keep the sheet; error shows
                             await store.reload(["metrics"])
                             dismiss()
                         }
                     }
-                    .disabled((parsed ?? 0) <= 0)
+                    .disabled(parsed == nil || saving)
                 }
             }
         }
@@ -168,9 +175,10 @@ private struct SubscriptionSheet: View {
     @State private var amount = ""
     @State private var cycle = "monthly"
     @State private var renews = Date()
+    @State private var saving = false
     private let cycles: [String] = ["weekly", "monthly", "quarterly", "yearly"]
 
-    private var parsed: Double? { Double(amount.replacingOccurrences(of: ",", with: ".")) }
+    private var parsed: Double? { amount.positiveNumber }
 
     var body: some View {
         NavigationStack {
@@ -184,10 +192,14 @@ private struct SubscriptionSheet: View {
                     DatePicker("Next renewal", selection: $renews, displayedComponents: .date)
                 } footer: { Text("You'll get a reminder 2 days before it renews.") }
                 .listRowBackground(DS.Palette.surface)
+                if let e = money.lastError {
+                    Section { Text(e).font(DS.Typo.caption).foregroundStyle(DS.Palette.critical) }.listRowBackground(DS.Palette.surface)
+                }
             }
             .scrollContentBackground(.hidden)
             .dsScreen()
             .navigationTitle("Subscription")
+            .onAppear { money.lastError = nil }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -195,9 +207,10 @@ private struct SubscriptionSheet: View {
                     Button("Save") {
                         guard let v = parsed else { return }
                         let n = name, c = cycle, r = renews
-                        Task { await money.saveSubscription(name: n, amount: v, cycle: c, renewsOn: r); dismiss() }
+                        saving = true
+                        Task { defer { saving = false }; if await money.saveSubscription(name: n, amount: v, cycle: c, renewsOn: r) { dismiss() } }
                     }
-                    .disabled(name.isEmpty || parsed == nil)
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || parsed == nil || saving)
                 }
             }
         }
