@@ -16,7 +16,7 @@ supabase login
 supabase link --project-ref <your-project-ref>      # the ref is in your project URL: https://<ref>.supabase.co
 # If you already ran 01 and 02 by hand in the SQL Editor (Phase 1), mark them as done first:
 supabase migration repair --status applied 20261027000001 20261027000002
-supabase db push                                      # runs 03..11 (and any you haven't run)
+supabase db push                                      # runs 03..12 (and any you haven't run)
 supabase secrets set ANTHROPIC_API_KEY=<your-key>     # set a spend limit in the Anthropic Console too
 supabase functions deploy ai-agent
 ```

@@ -45,6 +45,7 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 - [x] 14. Smart AI (insights, nudges, universal search)
 - [x] 15. Life admin (people, lists, documents, travel)
 - [x] 16. Apple Watch companion, StandBy, Focus modes, Face ID area locks
+- [x] 17. Polish and bug fixes (branch `phase-17-polish`, on top of 16) + `TESTING.md` Mac/iPhone guide
 
 ## Decisions log
 - Phase 0: `CLAUDE.md` and `PROGRESS.md` live in `ios/` so they don't affect the unrelated Python project at the repo root.
@@ -201,6 +202,23 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
   - Focus modes: `ForgeFocusFilter` (a SetFocusFilterIntent, main app, so xtool too). In Settings → Focus → (Work / Gym / Personal) → Add Filter → Forge, pick the areas Home shows during that Focus. The area list for the picker is cached on each reload.
   - Face ID lock per area: area editor → "Require Face ID" (`areas.config.locked`). Locked areas show "–" on Home and ask for Face ID (or the passcode) before opening; they lock again when the app goes to the background. Info.plist: `NSFaceIDUsageDescription`.
 
+## Phase 17: polish and bug fixes (`phase-17-polish`)
+A full review pass for bugs; no new features. Highlights:
+- Data: reads page past Supabase's 1000-row cap (items, logs, reminders, metrics) instead of silently cutting off.
+- Auth: one token refresh at a time; if Siri, the Watch or a background task already refreshed the token, the app adopts it instead of signing you out.
+- Realtime: after a reconnect everything reloads, so changes made while offline show up.
+- Timezone: the app now saves your device timezone (it stayed "UTC", which made the assistant's "today" and times wrong). The assistant gets your local time.
+- Reminders: completing a repeating reminder moves it to the next occurrence (app and assistant). EventKit not loaded yet can no longer delete many linked reminders at once. Notification actions that launch the app are no longer lost.
+- Chat: action labels survive reloads; a failed send puts your text back; no empty replies.
+- Capture: Undo can't be cut off by the auto-close; "Try again" after a failed save; dictation can't crash on a second try.
+- People / documents: editing renames the row instead of adding a copy; removing a gift idea sticks; a failed upload no longer saves without the file.
+- Money / measurements: cents show as $12.50; sheets stay open with the error if saving fails; no double submit; bad numbers rejected.
+- Today / calendar: overdue reminders stay visible with the timeline on; repeating events don't clash; day math is DST-safe; calendar, habits, focus and timezone refresh when you reopen the app.
+- Focus: the Live Activity is reattached after a relaunch so ending the session ends it.
+- New: `TESTING.md` (commands to deploy and put it on your iPhone), `project-phone.yml` (free Apple ID, app only), `supabase/config.toml` (Supabase CLI), a CI job for the phone project.
+
+Manual: run `supabase/migrations/20261027000012_polish.sql` (or `supabase db push`) and redeploy `ai-agent`. Then follow `TESTING.md`.
+
 ## Summary of the overnight run (phases 3.5-16)
 - Each phase is its own branch, stacked in order: `phase-3-5-design-system` → `phase-4-home` → `phase-5-chat` → `phase-5-5-reminders` → `phase-6-briefing` → `phase-7-widgets-intents` → `phase-8-capture` → `phase-9-checkins-review-journal` → `phase-10-calendar` → `phase-11-habits-focus-goals` → `phase-12-health` → `phase-13-money` → `phase-14-smart-ai` → `phase-15-life-admin` → `phase-16-watch-focus-faceid`. The last branch contains everything; roll back by checking out an earlier one.
 - Every phase's iOS code was compiled by the macOS CI (Swift package + generated Xcode project with widgets). Non-UI logic has unit tests run on Linux, the SQL was tested on Postgres 16 with RLS, and the Edge Function was type-checked and unit-tested with Deno.
@@ -208,9 +226,9 @@ Stop after each phase and wait for my OK. Branch per phase, commit when done.
 
 ## Manual steps I still need to do
 **Start here (about 20 minutes):**
-1. Supabase → SQL Editor: run every file in `supabase/migrations/` you haven't run yet, in filename order (`…03` through `…11`; 01 and 02 are from Phase 1).
+1. Supabase → SQL Editor: run every file in `supabase/migrations/` you haven't run yet, in filename order (`…03` through `…12`; 01 and 02 are from Phase 1). Or use the Supabase CLI: see `TESTING.md`.
 2. Supabase → Edge Functions: add the `ANTHROPIC_API_KEY` secret (set a spend limit in the Anthropic Console), then deploy `ai-agent` with all its `.ts` files except `agent_test.ts` (`index`, `agent`, `tools`, `tasks`).
-3. Check out `phase-16-watch-focus-faceid` (it contains every phase) and run `xtool dev`.
+3. Check out `phase-17-polish` (it contains every phase) and follow `TESTING.md` (Xcode) or run `xtool dev`.
 4. In the app: Settings → Cloud sync (sign in), then Settings → Features (turn on what you want) and Settings → Reminders and notifications.
 5. Optional: Xcode route for widgets, Live Activities and the Watch app (see Phase 7 / 16 below).
 
