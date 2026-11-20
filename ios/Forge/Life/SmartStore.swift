@@ -78,7 +78,7 @@ final class SmartStore {
         guard UserDefaults.standard.string(forKey: "smart.nudgeDay") != today else { return }
         let nudges: [Nudge] = (try? await LifeRepository(client: client).rpc("ai_nudges")) ?? []
         guard let n = Self.pick(nudges, lastKind: UserDefaults.standard.string(forKey: "smart.nudgeKind")) else { return }
-        var fire = Calendar.current.startOfDay(for: now).addingTimeInterval(18 * 3600)
+        var fire = Calendar.current.date(bySettingHour: 18, minute: 0, second: 0, of: now) ?? now
         if fire <= now { fire = now.addingTimeInterval(15 * 60) }
         fire = QuietHours.adjust(fire, start: settings?.quietHoursStart, end: settings?.quietHoursEnd)
         await NotificationScheduler.shared.schedule(id: id, title: "A gentle nudge", body: n.text,

@@ -97,11 +97,12 @@ enum QuietHours {
     static func adjust(_ date: Date, start: String?, end: String?, calendar: Calendar = .current) -> Date {
         guard let s = minutes(start), let e = minutes(end), s != e else { return date }
         let dayStart = calendar.startOfDay(for: date)
-        let m = Int(date.timeIntervalSince(dayStart) / 60)
+        let hm = calendar.dateComponents([.hour, .minute], from: date)
+        let m = (hm.hour ?? 0) * 60 + (hm.minute ?? 0)   // wall-clock minutes (DST-safe)
         let inside = s < e ? (m >= s && m < e) : (m >= s || m < e)
         guard inside else { return date }
         // End of the window: today if we're before it, otherwise tomorrow.
-        let endToday = dayStart.addingTimeInterval(Double(e) * 60)
+        let endToday = calendar.date(bySettingHour: e / 60, minute: e % 60, second: 0, of: dayStart) ?? dayStart.addingTimeInterval(Double(e) * 60)
         return m < e ? endToday : calendar.date(byAdding: .day, value: 1, to: endToday) ?? endToday
     }
 

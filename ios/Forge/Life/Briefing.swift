@@ -42,7 +42,8 @@ final class BriefingService {
             return
         }
         let cal = Calendar.current
-        var fire = cal.startOfDay(for: now).addingTimeInterval(Double(minutes) * 60)
+        // Wall-clock time, so a daylight-saving day doesn't move it by an hour.
+        var fire = cal.date(bySettingHour: minutes / 60, minute: minutes % 60, second: 0, of: now) ?? cal.startOfDay(for: now).addingTimeInterval(Double(minutes) * 60)
         if fire <= now { fire = cal.date(byAdding: .day, value: 1, to: fire) ?? fire }
         let cached = BriefingCache.today(now: fire)
         await scheduler.schedule(id: notificationId, title: "Your day", body: cached?.text ?? "Your briefing is ready.",
