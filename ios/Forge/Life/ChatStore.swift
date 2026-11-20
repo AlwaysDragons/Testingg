@@ -43,9 +43,11 @@ final class ChatStore {
             // Keep local-only lines (errors, pending) that the server doesn't have.
             let local = messages.filter { m in m.isError }
             let actionsById = Dictionary(messages.map { ($0.id, $0.actions) }, uniquingKeysWith: { a, _ in a })
+            // Lines added locally have their own ids; match their action labels to the saved row by text.
+            let actionsByText = Dictionary(messages.filter { !$0.actions.isEmpty }.map { ($0.content ?? "", $0.actions) }, uniquingKeysWith: { _, b in b })
             var merged = rows.reversed().map { row -> ChatMessage in
                 var r = row
-                r.actions = actionsById[row.id] ?? []
+                r.actions = actionsById[row.id] ?? (row.role == "assistant" ? actionsByText[row.content ?? ""] : nil) ?? []
                 return r
             }
             merged.append(contentsOf: local)
@@ -79,6 +81,7 @@ final class ChatStore {
             for handler in onDeviceActions { await handler(reply.deviceActions) }
         } catch {
             messages.append(ChatMessage(id: UUID(), role: "assistant", content: Self.friendly(error), createdAt: Date(), isError: true))
+            if draft.isEmpty { draft = message }  // keep what you typed so you can resend it
         }
     }
 
@@ -88,6 +91,11 @@ final class ChatStore {
             "create_area": "Created area", "upsert_item": "Saved item", "complete_item": "Completed item", "delete_item": "Deleted item",
             "log_entry": "Logged", "record_metric": "Recorded", "create_reminder": "Created reminder", "update_reminder": "Updated reminder",
             "complete_reminder": "Completed reminder", "delete_reminder": "Deleted reminder",
+            "capture": "Captured", "submit_checkin": "Saved check-in", "log_habit": "Habit done",
+            "start_focus_session": "Focus started", "end_focus_session": "Focus ended", "log_measurement": "Recorded",
+            "log_expense": "Logged expense", "upsert_subscription": "Saved subscription", "delete_subscription": "Deleted subscription",
+            "dismiss_insight": "Dismissed insight", "add_person": "Saved person", "log_contact": "Logged contact",
+            "save_document": "Saved document",
         ]
         var counts: [(String, Int)] = []
         for call in calls where call.ok {
