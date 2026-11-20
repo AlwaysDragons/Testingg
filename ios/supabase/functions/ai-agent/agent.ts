@@ -144,3 +144,17 @@ export function historyFrom(rows: { role: string; content: string | null }[]): M
   while (out.length && out[0].role !== "user") out.shift();
   return out;
 }
+
+/** The current time in UTC and in the user's own timezone, so "tomorrow at 6pm" resolves correctly. */
+export function nowLine(timezone?: string | null, notifyMode?: string | null, now = new Date()) {
+  let tz = timezone || "UTC";
+  let local: string;
+  try {
+    local = now.toLocaleString("en-US", { timeZone: tz, weekday: "long", year: "numeric", month: "long", day: "numeric",
+      hour: "numeric", minute: "2-digit", timeZoneName: "shortOffset" });
+  } catch {
+    tz = "UTC"; // unknown timezone name
+    local = now.toUTCString();
+  }
+  return `Now: ${now.toISOString()} UTC; for the user it is ${local} (${tz}). Default notify mode ${notifyMode || "app"}. Write times with the user's UTC offset.`;
+}

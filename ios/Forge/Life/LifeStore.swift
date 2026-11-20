@@ -37,6 +37,7 @@ final class LifeStore {
         }
         realtime = rt
         await reloadAll()
+        await syncTimezone()
         await rt.start()
     }
 
@@ -220,6 +221,12 @@ final class LifeStore {
         let features = s.features.setting(feature.rawValue, .bool(on))
         settings?.features = features
         await updateSettings(["features": features])
+    }
+
+    /// Keeps the server's timezone in step with the device, so the assistant reads "6pm" as your 6pm.
+    func syncTimezone(_ zone: TimeZone = .current) async {
+        guard let s = settings, s.timezone != zone.identifier else { return }
+        await updateSettings(["timezone": .string(zone.identifier)])
     }
 
     func updateSettings(_ fields: Row) async {

@@ -1,6 +1,6 @@
 // Unit tests (no network, no database): deno test supabase/functions/ai-agent
 import { assert, assertEquals } from "jsr:@std/assert@1.0.13";
-import { historyFrom, runAgent } from "./agent.ts";
+import { historyFrom, nowLine, runAgent } from "./agent.ts";
 import { runTool, TOOL_DEFINITIONS } from "./tools.ts";
 
 const ID = "6f1c2b1e-3d4a-4f5b-9c6d-7e8f9a0b1c2d";
@@ -156,4 +156,12 @@ Deno.test("capture task: created rows are collected for undo, updates are not", 
   assert(!TASKS.capture.tools.includes("delete_item"));
   assert(TASKS.capture.finish.validate({ kind: "task", summary: "Task in Home: buy milk" }).ok);
   assert(!TASKS.capture.finish.validate({ kind: "nope", summary: "x" }).ok);
+});
+
+Deno.test("nowLine gives local time and survives a bad timezone", () => {
+  const now = new Date("2026-11-20T02:30:00Z");
+  const ny = nowLine("America/New_York", null, now);
+  if (!ny.includes("Thursday, November 19, 2026") || !ny.includes("9:30") || !ny.includes("GMT-5")) throw new Error(ny);
+  const bad = nowLine("Not/AZone", "none", now);
+  if (!bad.includes("(UTC)") || !bad.includes("notify mode none")) throw new Error(bad);
 });

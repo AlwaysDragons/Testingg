@@ -9,7 +9,7 @@
 // Optional: AI_MODEL (default claude-sonnet-5-5), AI_EFFORT (default medium).
 import Anthropic from "npm:@anthropic-ai/sdk@1.3.0";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.118.0";
-import { type AgentDeps, DEFAULT_MODEL, historyFrom, runAgent, SYSTEM_PROMPT } from "./agent.ts";
+import { type AgentDeps, DEFAULT_MODEL, historyFrom, nowLine, runAgent, SYSTEM_PROMPT } from "./agent.ts";
 import { TASKS, toolsFor } from "./tasks.ts";
 import { runTool } from "./tools.ts";
 
@@ -68,13 +68,14 @@ Deno.serve(async (req) => {
     db.from("user_settings").select("timezone, default_notify_mode").maybeSingle(),
   ]);
   const history = historyFrom((rows ?? []).reverse());
+  // A trailing user turn means the last request failed before a reply; don't send two user turns.
+  if (history.length && history[history.length - 1].role === "user") history.pop();
 
   const { error: saveError } = await db.from("ai_messages").insert({ role: "user", content: message });
   if (saveError) return json({ error: "save_failed" }, 500);
 
   // Per-request facts go in the user turn (not the system prompt) so the cached prefix stays stable.
-  const timezone = settings?.timezone ?? "UTC";
-  const context = `Now: ${new Date().toISOString()} (user timezone ${timezone}; default notify mode ${settings?.default_notify_mode ?? "app"}).`;
+  const context = nowLine(settings?.timezone, settings?.default_notify_mode);
 
   try {
     const result = await runAgent(history, {
@@ -87,6 +88,8 @@ Deno.serve(async (req) => {
       effort,
     });
 
+    // A turn that only called tools can end without text; never show an empty bubble.
+    if (!result.reply) result.reply = result.toolCalls.some((c) => c.ok) ? "Done." : "I couldn't do that. Try rephrasing.";
     await db.from("ai_messages").insert({
       role: "assistant",
       content: result.reply,
@@ -107,9 +110,8 @@ type Db = SupabaseClient<any, "public", "public", any, any>;
 
 async function contextLine(db: Db) {
   const { data: settings } = await db.from("user_settings").select("timezone, default_notify_mode").maybeSingle();
-  const tz = (settings as { timezone?: string } | null)?.timezone ?? "UTC";
-  const notify = (settings as { default_notify_mode?: string } | null)?.default_notify_mode ?? "app";
-  return `Now: ${new Date().toISOString()} (user timezone ${tz}; default notify mode ${notify}).`;
+  const s = settings as { timezone?: string; default_notify_mode?: string } | null;
+  return nowLine(s?.timezone, s?.default_notify_mode);
 }
 
 /** One-shot task modes (briefing, ...): scoped tools, a structured result, no chat history. */
