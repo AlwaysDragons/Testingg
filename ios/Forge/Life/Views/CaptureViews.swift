@@ -10,6 +10,7 @@ struct CaptureSheet: View {
     @State private var text = ""
     @State private var dictation = Dictation()
     @State private var state: Phase = .editing
+    @State private var undoing = false
     @FocusState private var focused: Bool
 
     enum Phase: Equatable { case editing, saving, done(id: UUID, summary: String, sorted: Bool), failed }
@@ -40,6 +41,7 @@ struct CaptureSheet: View {
                     Spacer()
                     if sorted {
                         Button("Undo") {
+                            undoing = true
                             Task {
                                 await captures.undo(id)
                                 await store.reloadAll()
@@ -48,10 +50,13 @@ struct CaptureSheet: View {
                         }
                         .font(DS.Typo.body)
                         .frame(maxWidth: .infinity)
+                        .disabled(undoing)
                     }
                 case .failed:
                     Text("Couldn't save. Check your connection and try again.").font(DS.Typo.body).foregroundStyle(DS.Palette.critical)
                     Spacer()
+                    Button("Try again") { state = .editing }  // the text is kept
+                        .buttonStyle(PrimaryButtonStyle())
                 }
             }
             .padding(DS.Space.m)
@@ -91,7 +96,7 @@ struct CaptureSheet: View {
             state = .done(id: id, summary: outcome?.summary ?? "Saved. It will be sorted later.", sorted: outcome?.sorted ?? false)
             await store.reloadAll()
             try? await Task.sleep(nanoseconds: 4_000_000_000)
-            if case .done = state { dismiss() }
+            if case .done = state, !undoing { dismiss() }
         }
     }
 }
@@ -107,6 +112,7 @@ final class Dictation {
     @ObservationIgnored private var request: SFSpeechAudioBufferRecognitionRequest?
     @ObservationIgnored private var task: SFSpeechRecognitionTask?
     @ObservationIgnored private let recognizer = SFSpeechRecognizer()
+    @ObservationIgnored private var tapInstalled = false
 
     func toggle(onText: @escaping @MainActor (String) -> Void) async {
         if isRecording { stop(); return }
@@ -125,6 +131,7 @@ final class Dictation {
             request = req
             let input = engine.inputNode
             input.installTap(onBus: 0, bufferSize: 1024, format: input.outputFormat(forBus: 0)) { buffer, _ in req.append(buffer) }
+            tapInstalled = true
             engine.prepare()
             try engine.start()
             isRecording = true
@@ -145,9 +152,10 @@ final class Dictation {
     }
 
     func stop() {
-        guard isRecording || task != nil else { return }
+        guard isRecording || task != nil || tapInstalled else { return }
         engine.stop()
-        engine.inputNode.removeTap(onBus: 0)
+        // Remove the tap even when start failed, or the next installTap crashes.
+        if tapInstalled { engine.inputNode.removeTap(onBus: 0); tapInstalled = false }
         request?.endAudio()
         task?.cancel()
         request = nil
