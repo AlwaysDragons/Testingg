@@ -18,6 +18,7 @@ struct ItemDetailView: View {
     @State private var skipWeekends = false
     @State private var newMilestone = ""
     @State private var loaded = false
+    @State private var deleted = false
 
     private var current: Item { store.items.first { $0.id == item.id } ?? item }
     private var area: Area? { store.area(item.areaId) }
@@ -92,6 +93,7 @@ struct ItemDetailView: View {
 
             Section {
                 Button("Delete item", role: .destructive) {
+                    deleted = true  // don't save edits for a row that's gone
                     Task { await store.delete(current); dismiss() }
                 }
             }
@@ -114,7 +116,9 @@ struct ItemDetailView: View {
         progress = Double(i.progress)
         priority = i.priority
         hasDue = i.dueDate != nil
-        due = i.dueDate ?? Calendar.current.startOfDay(for: Date()).addingTimeInterval(86_400 + 9 * 3600)
+        let cal = Calendar.current
+        let tomorrow = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: Date())) ?? Date()
+        due = i.dueDate ?? cal.date(bySettingHour: 9, minute: 0, second: 0, of: tomorrow) ?? tomorrow
         tags = i.tags.joined(separator: ", ")
         repeats = i.isHabit
         grace = i.data["grace"]?.int ?? 0
@@ -123,6 +127,7 @@ struct ItemDetailView: View {
 
     /// Saves only what changed when leaving the screen.
     private func save() {
+        guard loaded, !deleted else { return }
         let i = current
         var fields: Row = [:]
         let t = title.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -5,12 +5,19 @@ import EventKit
 struct RemindersView: View {
     @Environment(LifeStore.self) private var store
     @Environment(ReminderSync.self) private var sync
+    @Environment(AreaLock.self) private var areaLock
     @State private var newTitle = ""
     @State private var notify = true
     @State private var editing: Reminder?
 
     var body: some View {
         let groups = store.reminderGroups()
+        // Reminders in Face ID-locked areas stay hidden until the area is unlocked.
+        let locked = Set(store.areas.filter { !areaLock.isOpen($0) }.map(\.id))
+        let shown: ([Reminder]) -> [Reminder] = { list in
+            locked.isEmpty ? list : list.filter { $0.areaId.map { !locked.contains($0) } ?? true }
+        }
+        let today = shown(groups.today), upcoming = shown(groups.upcoming), done = shown(groups.done)
         List {
             Section {
                 HStack {
@@ -28,13 +35,13 @@ struct RemindersView: View {
             }
             .listRowBackground(DS.Palette.surface)
 
-            if groups.today.isEmpty && groups.upcoming.isEmpty && groups.done.isEmpty {
+            if today.isEmpty && upcoming.isEmpty && done.isEmpty {
                 Section { EmptyState(symbol: "bell", title: "No reminders", message: "Add one above, or ask the assistant.") }
                     .listRowBackground(DS.Palette.surface)
             }
-            section("Today", groups.today)
-            section("Upcoming", groups.upcoming)
-            section("Done", Array(groups.done.prefix(20)))
+            section("Today", today)
+            section("Upcoming", upcoming)
+            section("Done", Array(done.prefix(20)))
         }
         .scrollContentBackground(.hidden)
         .dsScreen()
@@ -307,7 +314,9 @@ private struct ListSyncRow: View {
 enum TimeOfDay {
     static func date(from s: String) -> Date {
         let m = QuietHours.minutes(s) ?? 0
-        return Calendar.current.startOfDay(for: Date()).addingTimeInterval(Double(m) * 60)
+        let cal = Calendar.current
+        // Wall-clock time today (DST-safe, unlike startOfDay + seconds).
+        return cal.date(bySettingHour: m / 60, minute: m % 60, second: 0, of: Date()) ?? cal.startOfDay(for: Date())
     }
     static func string(from d: Date) -> String {
         let c = Calendar.current.dateComponents([.hour, .minute], from: d)

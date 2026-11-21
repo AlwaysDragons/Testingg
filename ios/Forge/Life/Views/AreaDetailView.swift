@@ -265,7 +265,7 @@ struct AreaDetailView: View {
     private func subtitle(_ item: Item) -> String? {
         var parts: [String] = []
         if let due = item.dueDate { parts.append(due.formatted(.relative(presentation: .named))) }
-        if item.priority > 0 { parts.append(ItemStatus.priorities[item.priority].1) }
+        if ItemStatus.priorities.indices.contains(item.priority), item.priority > 0 { parts.append(ItemStatus.priorities[item.priority].1) }
         if !item.tags.isEmpty { parts.append(item.tags.joined(separator: ", ")) }
         return parts.isEmpty ? nil : parts.joined(separator: " · ")
     }

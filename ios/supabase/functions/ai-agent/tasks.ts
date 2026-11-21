@@ -99,7 +99,9 @@ TASKS.capture = {
     const id = typeof params.capture_id === "string" ? params.capture_id : null;
     let areaId: string | null = null;
     if (r.area) {
-      const { data } = await db.from("areas").select("id").ilike("name", r.area).limit(1);
+      // Exact, case-insensitive name match: escape LIKE wildcards in the area name.
+      const name = String(r.area).replace(/[\\%_]/g, (c) => `\\${c}`);
+      const { data } = await db.from("areas").select("id").ilike("name", name).limit(1);
       areaId = data?.[0]?.id ?? null;
     }
     const sorted = r.kind !== "unsorted" && created.length > 0;
