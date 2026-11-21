@@ -215,6 +215,8 @@ A full review pass for bugs; no new features. Highlights:
 - Money / measurements: cents show as $12.50; sheets stay open with the error if saving fails; no double submit; bad numbers rejected.
 - Today / calendar: overdue reminders stay visible with the timeline on; repeating events don't clash; day math is DST-safe; calendar, habits, focus and timezone refresh when you reopen the app.
 - Focus: the Live Activity is reattached after a relaunch so ending the session ends it.
+- Search: the newest matches are no longer dropped when there are many; results, reminders and Today hide Face ID-locked areas; turning an area's Face ID off needs Face ID.
+- Items: deleting an item no longer saves pending edits to it afterwards.
 - New: `TESTING.md` (commands to deploy and put it on your iPhone), `project-phone.yml` (free Apple ID, app only), `supabase/config.toml` (Supabase CLI), a CI job for the phone project.
 
 Manual: run `supabase/migrations/20261027000012_polish.sql` (or `supabase db push`) and redeploy `ai-agent`. Then follow `TESTING.md`.
