@@ -66,8 +66,9 @@ final class EverydayStore {
         return checkins.first { $0.date == d && $0.type == type }
     }
 
-    func submitCheckin(type: String, mood: Int?, energy: Int?, wins: String?, notes: String?) async {
-        guard let client else { return }
+    @discardableResult
+    func submitCheckin(type: String, mood: Int?, energy: Int?, wins: String?, notes: String?) async -> Bool {
+        guard let client else { return false }
         var p: [String: JSONValue] = ["type": .string(type), "date": .string(LifeCoding.dayString(Date()))]
         if let mood { p["mood"] = .int(mood) }
         if let energy { p["energy"] = .int(energy) }
@@ -76,8 +77,12 @@ final class EverydayStore {
         do {
             let _: JSONValue = try await LifeRepository(client: client).rpc("ai_submit_checkin", ["p": .object(p)])
             lastError = nil
-        } catch { lastError = error.localizedDescription }
+        } catch {
+            lastError = "Couldn't save your check-in. Check your connection."
+            return false
+        }
         await reload()
+        return true
     }
 
     // MARK: Weekly review (cached per week)
@@ -126,15 +131,20 @@ final class EverydayStore {
     }
 
     /// Your own edit: saved as source "manual", so the AI never overwrites it.
-    func saveJournal(_ content: String, for day: Date) async {
-        guard let client else { return }
+    @discardableResult
+    func saveJournal(_ content: String, for day: Date) async -> Bool {
+        guard let client else { return false }
         let row: Row = ["date": .string(LifeCoding.dayString(day)), "content": .string(content), "source": .string("manual")]
         do {
             try await client.rest("POST", "journal_entries", query: [.init(name: "on_conflict", value: "user_id,date")],
                                   body: try JSONEncoder().encode([row]), prefer: "resolution=merge-duplicates,return=minimal")
             lastError = nil
-        } catch { lastError = "Couldn't save your edit. Check your connection." }   // never lose an edit silently
+        } catch {
+            lastError = "Couldn't save your edit. Check your connection."   // never lose an edit silently
+            return false
+        }
         await reload()
+        return true
     }
 
     /// Writes yesterday's journal once, if the feature is on and it's missing.

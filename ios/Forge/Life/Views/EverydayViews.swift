@@ -8,6 +8,7 @@ struct CheckinSheet: View {
     @State private var mood: Int?
     @State private var energy: Int?
     @State private var line = ""
+    @State private var saving = false
 
     var body: some View {
         NavigationStack {
@@ -18,16 +19,23 @@ struct CheckinSheet: View {
                     .lineLimit(1...3)
                     .padding(DS.Space.m)
                     .background(DS.Palette.surface, in: RoundedRectangle(cornerRadius: DS.Radius.control, style: .continuous))
+                if let e = everyday.lastError {
+                    Text(e).font(DS.Typo.caption).foregroundStyle(DS.Palette.critical)
+                }
                 Spacer()
                 Button("Save") {
+                    saving = true
                     Task {
-                        await everyday.submitCheckin(type: type, mood: mood, energy: energy, wins: line, notes: nil)
-                        DS.Haptics.success()
-                        dismiss()
+                        // Stays open with the error if saving fails, so nothing typed is lost.
+                        if await everyday.submitCheckin(type: type, mood: mood, energy: energy, wins: line, notes: nil) {
+                            DS.Haptics.success()
+                            dismiss()
+                        }
+                        saving = false
                     }
                 }
                 .buttonStyle(PrimaryButtonStyle())
-                .disabled(mood == nil && energy == nil && line.isEmpty)
+                .disabled((mood == nil && energy == nil && line.isEmpty) || saving)
             }
             .padding(DS.Space.m)
             .dsScreen()
@@ -41,7 +49,7 @@ struct CheckinSheet: View {
                     } label: { Image(systemName: "ellipsis") }
                 }
             }
-            .onAppear(perform: load)
+            .onAppear { everyday.lastError = nil; load() }
             .onChange(of: type) { _, _ in load() }
         }
         .presentationDetents([.medium, .large])
@@ -214,23 +222,36 @@ private struct JournalEditor: View {
     @Environment(\.dismiss) private var dismiss
     let day: Date
     @State private var text = ""
+    @State private var saving = false
 
     var body: some View {
         NavigationStack {
-            TextEditor(text: $text)
-                .font(DS.Typo.body)
-                .scrollContentBackground(.hidden)
-                .padding(DS.Space.m)
-                .dsScreen()
-                .navigationTitle(day.formatted(date: .abbreviated, time: .omitted))
-                .navigationBarTitleDisplayMode(.inline)
-                .toolbar {
-                    ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                    ToolbarItem(placement: .confirmationAction) {
-                        Button("Save") { Task { await everyday.saveJournal(text, for: day); dismiss() } }
-                    }
+            VStack(spacing: 0) {
+                if let e = everyday.lastError {
+                    Text(e).font(DS.Typo.caption).foregroundStyle(DS.Palette.critical).padding(.horizontal, DS.Space.m)
                 }
-                .onAppear { text = everyday.entry(for: day)?.content ?? "" }
+                TextEditor(text: $text)
+                    .font(DS.Typo.body)
+                    .scrollContentBackground(.hidden)
+                    .padding(DS.Space.m)
+            }
+            .dsScreen()
+            .navigationTitle(day.formatted(date: .abbreviated, time: .omitted))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        saving = true
+                        Task {
+                            if await everyday.saveJournal(text, for: day) { dismiss() }   // stays open on failure
+                            saving = false
+                        }
+                    }
+                    .disabled(saving)
+                }
+            }
+            .onAppear { everyday.lastError = nil; text = everyday.entry(for: day)?.content ?? "" }
         }
     }
 }
