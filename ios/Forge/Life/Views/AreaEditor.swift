@@ -4,6 +4,7 @@ import SwiftUI
 struct AreaEditor: View {
     @Environment(LifeStore.self) private var store
     @Environment(\.dismiss) private var dismiss
+    @Environment(AreaLock.self) private var areaLock
     let area: Area?
 
     @State private var name = ""
@@ -108,6 +109,10 @@ struct AreaEditor: View {
     private func save() async {
         saving = true
         defer { saving = false }
+        // Turning Face ID off needs Face ID (the editor is also reachable from Settings without unlocking).
+        if let a = area, AreaLock.isLocked(a), !locked, !areaLock.isOpen(a) {
+            guard await areaLock.unlock(a) else { locked = true; return }
+        }
         let n = name.trimmingCharacters(in: .whitespacesAndNewlines)
         if let a = area {
             let base = heroMetric.isEmpty ? JSONValue.object(a.config.object.filter { $0.key != "hero_metric" }) : a.config.setting("hero_metric", .string(heroMetric))
