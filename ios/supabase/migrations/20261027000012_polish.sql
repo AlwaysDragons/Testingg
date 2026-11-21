@@ -155,3 +155,57 @@ begin
   return jsonb_build_object('action', 'saved', 'document', to_jsonb(v_row));
 end;
 $$;
+
+-- ai_search_all: sort before the limit (newest matches were dropped), escape backslashes, and
+-- return area_id for items/logs/reminders so the app can hide results from Face ID-locked areas.
+create or replace function public.ai_search_all(p_query text, p_limit int default 30)
+returns jsonb
+language plpgsql
+stable
+security invoker
+set search_path = public
+as $$
+declare
+  q text := '%' || replace(replace(replace(trim(p_query), '\', '\\'), '%', '\%'), '_', '\_') || '%';
+begin
+  if length(trim(coalesce(p_query, ''))) < 2 then
+    return '[]';
+  end if;
+  return coalesce((select jsonb_agg(x order by (x->>'date') desc nulls last) from (select x from (
+    select jsonb_build_object('type', 'item', 'id', i.id, 'title', i.title, 'snippet', a.name, 'date', coalesce(i.completed_at, i.updated_at), 'area_id', i.area_id) x
+      from items i join areas a on a.id = i.area_id where i.title ilike q or array_to_string(i.tags, ' ') ilike q
+    union all
+    select jsonb_build_object('type', 'log', 'id', l.id, 'title', l.note, 'snippet', a.name, 'date', l.logged_at, 'area_id', l.area_id)
+      from logs l join areas a on a.id = l.area_id where l.note ilike q
+    union all
+    select jsonb_build_object('type', 'reminder', 'id', r.id, 'title', r.title, 'snippet', r.notes, 'date', r.remind_at, 'area_id', r.area_id)
+      from reminders r where r.title ilike q or r.notes ilike q
+    union all
+    select jsonb_build_object('type', 'journal', 'id', j.id, 'title', j.date::text, 'snippet', left(j.content, 140), 'date', j.date)
+      from journal_entries j where j.content ilike q
+    union all
+    select jsonb_build_object('type', 'capture', 'id', c.id, 'title', c.raw_text, 'snippet', c.status, 'date', c.created_at)
+      from captures c where c.raw_text ilike q
+    union all
+    select jsonb_build_object('type', 'workout', 'id', w.id, 'title', w.title, 'snippet', null, 'date', w.started_at)
+      from workouts w where w.title ilike q
+    union all
+    select jsonb_build_object('type', 'exercise', 'id', s.workout_id, 'title', s.exercise_title,
+                              'snippet', coalesce(s.weight_kg::text || ' kg × ', '') || coalesce(s.reps::text, ''), 'date', w.started_at)
+      from (select distinct on (workout_id, exercise_title) * from workout_sets
+            where exercise_title ilike q order by workout_id, exercise_title, weight_kg desc nulls last) s
+      join workouts w on w.id = s.workout_id
+    union all
+    select jsonb_build_object('type', 'person', 'id', p.id, 'title', p.name, 'snippet', p.notes, 'date', p.last_contacted)
+      from people p where p.name ilike q or p.notes ilike q
+    union all
+    select jsonb_build_object('type', 'document', 'id', d.id, 'title', d.title, 'snippet', d.location_note, 'date', d.expires_at)
+      from documents d where d.title ilike q or d.notes ilike q or d.location_note ilike q or d.category ilike q
+    union all
+    select jsonb_build_object('type', 'subscription', 'id', s.id, 'title', s.name, 'snippet', s.amount::text || ' ' || s.currency, 'date', s.renews_on)
+      from subscriptions s where s.name ilike q
+    ) u order by (x->>'date') desc nulls last
+    limit greatest(1, least(coalesce(p_limit, 30), 100))
+  ) t), '[]');
+end;
+$$;

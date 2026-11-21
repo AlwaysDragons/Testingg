@@ -5,7 +5,14 @@ struct SearchView: View {
     @Environment(SmartStore.self) private var smart
     @Environment(LifeStore.self) private var store
     @Environment(ChatStore.self) private var chat
+    @Environment(AreaLock.self) private var areaLock
     @State private var query = ""
+
+    /// Results minus anything in a Face ID-locked area.
+    private var results: [SearchResult] {
+        let locked = Set(store.areas.filter { !areaLock.isOpen($0) }.map(\.id))
+        return locked.isEmpty ? smart.results : smart.results.filter { $0.areaId.map { !locked.contains($0) } ?? true }
+    }
 
     var body: some View {
         List {
@@ -16,13 +23,13 @@ struct SearchView: View {
                                actionTitle: "Ask the assistant") { chat.open() }
                 }
                 .listRowBackground(DS.Palette.surface)
-            } else if smart.results.isEmpty && !smart.isSearching {
+            } else if results.isEmpty && !smart.isSearching {
                 Section {
                     EmptyState(symbol: "magnifyingglass", title: "No matches", actionTitle: "Ask the assistant") { chat.open(prefill: query) }
                 }
                 .listRowBackground(DS.Palette.surface)
             }
-            let grouped = Dictionary(grouping: smart.results, by: \.type)
+            let grouped = Dictionary(grouping: results, by: \.type)
             ForEach(grouped.keys.sorted(), id: \.self) { type in
                 Section {
                     ForEach(grouped[type] ?? [], id: \.rowId) { r in row(r) }

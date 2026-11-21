@@ -16,6 +16,8 @@ struct SearchResult: Decodable, Identifiable, Hashable, Sendable {
     var title: String?
     var snippet: String?
     var date: String?
+    /// Items, logs and reminders only (used to hide Face ID-locked areas).
+    var areaId: UUID?
     var rowId: String { "\(type):\(id.uuidString):\(title ?? "")" }
 }
 
